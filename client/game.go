@@ -8,10 +8,13 @@ import (
 	"net/http"
 )
 
-const serverApi = "https://go-pjatk-server.fly.dev/api"
-const tokenKey = "X-Auth-Token"
+const (
+	serverApi    = "https://go-pjatk-server.fly.dev/api"
+	tokenKey     = "X-Auth-Token"
+	unmarshalErr = "failed to unmarshal from ReadCloser"
+)
 
-type Client struct {
+type Game struct {
 	Token string
 }
 
@@ -23,54 +26,112 @@ type GameSettings struct {
 	AgainstBot  bool     `json:"wpbot"`
 }
 
-func InitGame(settings GameSettings) (Client, error) {
-	body, err := json.Marshal(settings)
-	client := Client{}
+type StatusResponse struct {
+	Status         string   `json:"game_status"`
+	LastGameStatus string   `json:"last_game_status"`
+	Nick           string   `json:"nick"`
+	OpponentShots  []string `json:"opp_shots"`
+	Opponent       string   `json:"opponent"`
+	ShouldFire     bool     `json:"should_fire"`
+	Timer          int      `json:"timer"`
+	Message        string   `json:"message"`
+}
+
+type BoardResponse struct {
+	Board   []string `json:"board"`
+	Message string   `json:"message"`
+}
+
+func InitGame(settings GameSettings) (Game, error) {
+	requestBody, err := json.Marshal(settings)
+	game := Game{}
 	if err != nil {
-		return client, fmt.Errorf("failed InitGame: %w", err)
+		return game, fmt.Errorf("failed to marshal settings to json: %w", err)
 	}
-	r := bytes.NewReader(body)
+	r := bytes.NewReader(requestBody)
 	res, err := http.Post(serverApi+"/game", "application/json", r)
 	if err != nil {
-		return client, fmt.Errorf("failed InitGame: %w", err)
+		return game, fmt.Errorf("failed to send POST request: %w", err)
 	}
-	defer res.Body.Close()
 	if res.StatusCode == 400 {
-		return client, fmt.Errorf("failed InitGame: %s", res.Status)
+		responseBody, err := unmarshalFromReadCloser[map[string]any](&res.Body)
+		if err != nil {
+			return game, fmt.Errorf("%s: %w", unmarshalErr, err)
+		}
+		mes, ok := responseBody["message"]
+		if !ok {
+			mes = res.Status
+		}
+		return game, fmt.Errorf("failed to initialize game: %s", mes)
 	}
-	token := res.Header.Get(tokenKey)
-	c := Client{Token: token}
-	return c, nil
+	game.Token = res.Header.Get(tokenKey)
+	return game, nil
 }
 
-func Board(c Client) ([]string, error) {
-	res, err := c.sendRequest(http.MethodGet, "/game/board", nil)
+func (g Game) Board() ([]string, error) {
+	res, err := g.sendRequest(http.MethodGet, "/game/board", nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed Board: %w", err)
+		return nil, fmt.Errorf("failed to send GET request: %w", err)
 	}
-	jsonBody := make(map[string][]string)
-	err = unmarshalFromReadCloser(&res.Body, &jsonBody)
-
-	return jsonBody["board"], err
-}
-
-func Status(c Client) error {
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/game", serverApi), nil)
+	boardRes, err := unmarshalFromReadCloser[BoardResponse](&res.Body)
 	if err != nil {
-		return fmt.Errorf("%w", err)
+		return nil, fmt.Errorf("%s: %w", unmarshalErr, err)
 	}
-
-	req.Header.Add(tokenKey, c.Token)
-
-	res, _ := http.DefaultClient.Do(req)
-	defer res.Body.Close()
-	body := res.Body
-	bytes, _ := io.ReadAll(body)
-	fmt.Println(string(bytes))
-	return nil
+	if res.StatusCode == 401 || res.StatusCode == 403 {
+		return nil, fmt.Errorf("failed get board information: %s", boardRes.Message)
+	}
+	return boardRes.Board, err
 }
 
-func (c Client) sendRequest(method string, path string, body io.Reader) (*http.Response, error) {
+func (g Game) Status() (StatusResponse, error) {
+	statusRes := StatusResponse{}
+	res, err := g.sendRequest(http.MethodGet, "/game", nil)
+	if err != nil {
+		return statusRes, fmt.Errorf("failed to send GET request: %w", err)
+	}
+	statusRes, err = unmarshalFromReadCloser[StatusResponse](&res.Body)
+	if err != nil {
+		return statusRes, fmt.Errorf("%s: %w", unmarshalErr, err)
+	}
+	if res.StatusCode == 403 || res.StatusCode == 401 || res.StatusCode == 429 {
+		return statusRes, fmt.Errorf("failed to retrieve game status: %s", statusRes.Message)
+	}
+	return statusRes, nil
+}
+
+func (g Game) Fire(coord string) (string, error) {
+	coords := make(map[string]string)
+	coords["coord"] = coord
+	reqBody, err := json.Marshal(coords)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal coord to json: %w", err)
+	}
+	r := bytes.NewReader(reqBody)
+	res, err := g.sendRequest(http.MethodPost, "/game/fire", r)
+	if err != nil {
+		return "", fmt.Errorf("failed to send GET request: %w", err)
+	}
+	jsonBody, err := unmarshalFromReadCloser[map[string]string](&res.Body)
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", unmarshalErr, err)
+	}
+	sc := res.StatusCode
+	if sc == 400 || sc == 401 || sc == 403 || sc == 429 {
+		mes, ok := jsonBody["message"]
+		if !ok {
+			mes = res.Status
+		}
+		return "", fmt.Errorf("failed to fire: %s", mes)
+	}
+	result, ok := jsonBody["result"]
+	fmt.Println(result)
+	if !ok {
+		return "", fmt.Errorf("failed to fire: Result not found")
+	}
+	return result, nil
+}
+
+func (c Game) sendRequest(method string, path string, body io.Reader) (*http.Response, error) {
 	req, err := http.NewRequest(method, fmt.Sprintf("%s%s", serverApi, path), body)
 	if err != nil {
 		return nil, fmt.Errorf("failed sendRequest: %w", err)
@@ -83,15 +144,16 @@ func (c Client) sendRequest(method string, path string, body io.Reader) (*http.R
 	return res, nil
 }
 
-func unmarshalFromReadCloser(rc *io.ReadCloser, value any) error {
+func unmarshalFromReadCloser[T any](rc *io.ReadCloser) (T, error) {
 	defer (*rc).Close()
-	b, err := io.ReadAll(*rc)
+	t := new(T)
+	bytes, err := io.ReadAll(*rc)
 	if err != nil {
-		return fmt.Errorf("failed mapToJson: %w", err)
+		return *t, fmt.Errorf("failed to read from Reader: %w", err)
 	}
-	err = json.Unmarshal(b, value)
+	err = json.Unmarshal(bytes, t)
 	if err != nil {
-		err = fmt.Errorf("failed mapToJson: %w", err)
+		err = fmt.Errorf("failed to map value from JSON: %w", err)
 	}
-	return err
+	return *t, err
 }

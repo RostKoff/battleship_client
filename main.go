@@ -1,8 +1,8 @@
 package main
 
 import (
+	"battleship_client/client"
 	"fmt"
-	"warships_client/client"
 )
 
 func main() {
@@ -12,10 +12,20 @@ func main() {
 		AgainstBot:  true,
 	}
 
-	c, err := client.InitGame(settings)
+	g, err := client.InitGame(settings)
 	if err != nil {
 		panic(err)
 	}
-	board, _ := client.Board(c)
-	fmt.Println(board)
+	line := ""
+	for {
+		board, _ := g.Board()
+		status, _ := g.Status()
+		fmt.Printf("%s\n%v\n", board, status)
+		fmt.Scanln(&line)
+		res, err := g.Fire(line)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println(res)
+	}
 }
