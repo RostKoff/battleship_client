@@ -34,12 +34,18 @@ type StatusResponse struct {
 	Opponent       string   `json:"opponent"`
 	ShouldFire     bool     `json:"should_fire"`
 	Timer          int      `json:"timer"`
-	Message        string   `json:"message"`
+	Message        string
 }
 
-type BoardResponse struct {
-	Board   []string `json:"board"`
-	Message string   `json:"message"`
+type DescriptionResponse struct {
+	PlayerDescription   string `json:"desc"`
+	OpponentDescription string `json:"opp_desc"`
+	Message             string
+}
+
+type boardResponse struct {
+	board   []string
+	Message string
 }
 
 func InitGame(settings GameSettings) (Game, error) {
@@ -62,7 +68,7 @@ func InitGame(settings GameSettings) (Game, error) {
 		if !ok {
 			mes = res.Status
 		}
-		return game, fmt.Errorf("failed to initialize game: %s", mes)
+		return game, fmt.Errorf("response error: %s", mes)
 	}
 	game.Token = res.Header.Get(tokenKey)
 	return game, nil
@@ -73,14 +79,14 @@ func (g Game) Board() ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to send GET request: %w", err)
 	}
-	boardRes, err := unmarshalFromReadCloser[BoardResponse](&res.Body)
+	boardRes, err := unmarshalFromReadCloser[boardResponse](&res.Body)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", unmarshalErr, err)
 	}
 	if res.StatusCode == 401 || res.StatusCode == 403 {
-		return nil, fmt.Errorf("failed get board information: %s", boardRes.Message)
+		return nil, fmt.Errorf("response error: %s", boardRes.Message)
 	}
-	return boardRes.Board, err
+	return boardRes.board, err
 }
 
 func (g Game) Status() (StatusResponse, error) {
@@ -94,7 +100,7 @@ func (g Game) Status() (StatusResponse, error) {
 		return statusRes, fmt.Errorf("%s: %w", unmarshalErr, err)
 	}
 	if res.StatusCode == 403 || res.StatusCode == 401 || res.StatusCode == 429 {
-		return statusRes, fmt.Errorf("failed to retrieve game status: %s", statusRes.Message)
+		return statusRes, fmt.Errorf("response error: %s", statusRes.Message)
 	}
 	return statusRes, nil
 }
@@ -115,31 +121,47 @@ func (g Game) Fire(coord string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("%s: %w", unmarshalErr, err)
 	}
-	sc := res.StatusCode
-	if sc == 400 || sc == 401 || sc == 403 || sc == 429 {
+
+	if sc := res.StatusCode; sc == 400 || sc == 401 || sc == 403 || sc == 429 {
 		mes, ok := jsonBody["message"]
 		if !ok {
 			mes = res.Status
 		}
-		return "", fmt.Errorf("failed to fire: %s", mes)
+		return "", fmt.Errorf("response error: %s", mes)
 	}
 	result, ok := jsonBody["result"]
 	fmt.Println(result)
 	if !ok {
-		return "", fmt.Errorf("failed to fire: Result not found")
+		return "", fmt.Errorf("result not found")
 	}
 	return result, nil
 }
 
-func (c Game) sendRequest(method string, path string, body io.Reader) (*http.Response, error) {
+func (g Game) PlayerDescriptions() (DescriptionResponse, error) {
+	descriptionRes := DescriptionResponse{}
+	res, err := g.sendRequest(http.MethodGet, "/game/desc", nil)
+	if err != nil {
+		return descriptionRes, fmt.Errorf("failed to send GET request: %w", err)
+	}
+	descriptionRes, err = unmarshalFromReadCloser[DescriptionResponse](&res.Body)
+	if err != nil {
+		return descriptionRes, fmt.Errorf("%s: %w", unmarshalErr, err)
+	}
+	if sc := res.StatusCode; sc == 401 || sc == 404 || sc == 429 {
+		return descriptionRes, fmt.Errorf("response error: %s", descriptionRes.Message)
+	}
+	return descriptionRes, nil
+}
+
+func (g Game) sendRequest(method string, path string, body io.Reader) (*http.Response, error) {
 	req, err := http.NewRequest(method, fmt.Sprintf("%s%s", serverApi, path), body)
 	if err != nil {
-		return nil, fmt.Errorf("failed sendRequest: %w", err)
+		return nil, fmt.Errorf("failed to create new http request: %w", err)
 	}
-	req.Header.Add(tokenKey, c.Token)
+	req.Header.Add(tokenKey, g.Token)
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed sendRequest: %w", err)
+		return nil, fmt.Errorf("failed to send http request: %w", err)
 	}
 	return res, nil
 }

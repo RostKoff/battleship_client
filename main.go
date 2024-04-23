@@ -20,7 +20,11 @@ func main() {
 	for {
 		board, _ := g.Board()
 		status, _ := g.Status()
-		fmt.Printf("%s\n%v\n", board, status)
+		descs, err := g.PlayerDescriptions()
+		if err != nil {
+			fmt.Printf("Desc error: %s", err)
+		}
+		fmt.Printf("board: %s\nstatus: %v\nplayer desc: %s\topp desc: %s\n", board, status, descs.PlayerDescription, descs.OpponentDescription)
 		fmt.Scanln(&line)
 		res, err := g.Fire(line)
 		if err != nil {
