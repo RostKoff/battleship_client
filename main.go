@@ -1,35 +1,49 @@
 package main
 
 import (
-	"battleship_client/client"
-	"fmt"
+	"battleship_client/http/client"
+	"context"
+	"time"
+
+	gui "github.com/grupawp/warships-gui/v2"
 )
 
 func main() {
-	settings := client.GameSettings{
-		Nick:        "custom_nick",
-		Description: "Custom desc",
-		AgainstBot:  true,
-	}
 
-	g, err := client.InitGame(settings)
-	if err != nil {
-		panic(err)
-	}
-	line := ""
-	for {
-		board, _ := g.Board()
-		status, _ := g.Status()
-		descs, err := g.PlayerDescriptions()
-		if err != nil {
-			fmt.Printf("Desc error: %s", err)
-		}
-		fmt.Printf("board: %s\nstatus: %v\nplayer desc: %s\topp desc: %s\n", board, status, descs.PlayerDescription, descs.OpponentDescription)
-		fmt.Scanln(&line)
-		res, err := g.Fire(line)
+	ctx := context.Background()
+	go func() {
+		settings := client.GameSettings{AgainstBot: true}
+		game, err := client.InitGame(settings)
 		if err != nil {
 			panic(err)
 		}
-		fmt.Println(res)
-	}
+		statusRes := client.StatusResponse{}
+		for {
+			statusRes, err = game.Status()
+			if err != nil {
+				continue
+			} else if statusRes.Status == "game_in_progress" {
+				break
+			}
+			time.Sleep(time.Second)
+		}
+		// descs, err := game.PlayerDescriptions()
+		if err != nil {
+			panic(err)
+		}
+		board, err := game.Board()
+		if err != nil {
+			panic(err)
+		}
+		pboard.Nick.SetText(statusRes.Nick)
+		oppBoard.Nick.SetText(statusRes.Opponent)
+		for _, coord := range board {
+			err := pboard.UpdateState(coord, gui.Ship)
+			if err != nil {
+				panic(err)
+			}
+		}
+	}()
+	ui.Start(ctx, nil)
+
 }

@@ -44,7 +44,7 @@ type DescriptionResponse struct {
 }
 
 type boardResponse struct {
-	board   []string
+	Board   []string
 	Message string
 }
 
@@ -86,7 +86,7 @@ func (g Game) Board() ([]string, error) {
 	if res.StatusCode == 401 || res.StatusCode == 403 {
 		return nil, fmt.Errorf("response error: %s", boardRes.Message)
 	}
-	return boardRes.board, err
+	return boardRes.Board, err
 }
 
 func (g Game) Status() (StatusResponse, error) {
@@ -164,18 +164,4 @@ func (g Game) sendRequest(method string, path string, body io.Reader) (*http.Res
 		return nil, fmt.Errorf("failed to send http request: %w", err)
 	}
 	return res, nil
-}
-
-func unmarshalFromReadCloser[T any](rc *io.ReadCloser) (T, error) {
-	defer (*rc).Close()
-	t := new(T)
-	bytes, err := io.ReadAll(*rc)
-	if err != nil {
-		return *t, fmt.Errorf("failed to read from Reader: %w", err)
-	}
-	err = json.Unmarshal(bytes, t)
-	if err != nil {
-		err = fmt.Errorf("failed to map value from JSON: %w", err)
-	}
-	return *t, err
 }
