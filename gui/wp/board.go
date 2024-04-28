@@ -1,6 +1,7 @@
 package wp
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 
@@ -24,7 +25,7 @@ func InitGameBoard(x int, y int, cfg *gui.BoardConfig) *GameBoard {
 }
 
 func (b *GameBoard) UpdateState(coords string, state gui.State) error {
-	c, err := convertCoords(coords)
+	c, err := ConvertCoords(coords)
 	if err != nil {
 		return fmt.Errorf("failed to convert coords: %w", err)
 	}
@@ -33,7 +34,23 @@ func (b *GameBoard) UpdateState(coords string, state gui.State) error {
 	return nil
 }
 
-func convertCoords(coords string) ([2]int, error) {
+func (b *GameBoard) UpdateStateWithDigitCoords(letterCoord int, numCoord int, state gui.State) error {
+	if letterCoord < 0 || letterCoord > 9 {
+		return fmt.Errorf("letter coord is out of bounce")
+	}
+	if numCoord < 0 || numCoord > 9 {
+		return fmt.Errorf("number coord is out of bounce")
+	}
+	b.states[letterCoord][numCoord] = state
+	b.Board.SetStates(b.states)
+	return nil
+}
+
+func (b *GameBoard) Listen() string {
+	return b.Board.Listen(context.Background())
+}
+
+func ConvertCoords(coords string) ([2]int, error) {
 	values := [2]int{}
 	letterCoord := int(coords[0]) - 65
 	if letterCoord < 0 || letterCoord > 9 {

@@ -130,7 +130,6 @@ func (g Game) Fire(coord string) (string, error) {
 		return "", fmt.Errorf("response error: %s", mes)
 	}
 	result, ok := jsonBody["result"]
-	fmt.Println(result)
 	if !ok {
 		return "", fmt.Errorf("result not found")
 	}

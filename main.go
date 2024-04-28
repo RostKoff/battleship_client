@@ -1,49 +1,84 @@
 package main
 
 import (
+	gui "battleship_client/gui/wp"
 	"battleship_client/http/client"
 	"context"
+	"fmt"
 	"time"
 
-	gui "github.com/grupawp/warships-gui/v2"
+	warships_gui "github.com/grupawp/warships-gui/v2"
 )
 
 func main() {
+	gameUi := gui.InitGameUI()
+	settings := client.GameSettings{AgainstBot: true}
+	statusRes := client.StatusResponse{}
+	game, err := client.InitGame(settings)
+	if err != nil {
+		fmt.Printf("Failed to initialise game")
+		return
+	}
 
-	ctx := context.Background()
-	go func() {
-		settings := client.GameSettings{AgainstBot: true}
-		game, err := client.InitGame(settings)
-		if err != nil {
-			panic(err)
+	for {
+		statusRes, err = game.Status()
+		if err != nil || statusRes.Status != "game_in_progress" {
+			time.Sleep(time.Second)
+			continue
 		}
-		statusRes := client.StatusResponse{}
+		break
+	}
+	board, err := game.Board()
+	if err != nil {
+		fmt.Printf("Failed to get player board")
+		return
+	}
+	for _, coord := range board {
+		gameUi.PBoard.UpdateState(coord, warships_gui.Ship)
+	}
+	go func() {
 		for {
-			statusRes, err = game.Status()
-			if err != nil {
-				continue
-			} else if statusRes.Status == "game_in_progress" {
+			gameUi.Timer.SetText(fmt.Sprint(statusRes.Timer))
+			if statusRes.Status == "ended" {
 				break
 			}
-			time.Sleep(time.Second)
-		}
-		// descs, err := game.PlayerDescriptions()
-		if err != nil {
-			panic(err)
-		}
-		board, err := game.Board()
-		if err != nil {
-			panic(err)
-		}
-		pboard.Nick.SetText(statusRes.Nick)
-		oppBoard.Nick.SetText(statusRes.Opponent)
-		for _, coord := range board {
-			err := pboard.UpdateState(coord, gui.Ship)
+			if !statusRes.ShouldFire {
+				gameUi.TurnText.SetText("")
+				time.Sleep(time.Second)
+			} else {
+				if size := len(statusRes.OpponentShots); size > 0 {
+					err = gameUi.HandleOppShot(board, statusRes.OpponentShots[size-1])
+					if err != nil {
+						fmt.Printf("Failed to draw opponent shot\n")
+						return
+					}
+				}
+				gameUi.TurnText.SetText("Your turn!")
+				coord := gameUi.OppBoard.Listen()
+				fireRes, err := game.Fire(coord)
+				if err != nil {
+					fmt.Printf("Failed to fire")
+					return
+				}
+				err = gameUi.HandlePShot(fireRes, coord)
+				if err != nil {
+					fmt.Printf("Failed to handle player shot\n")
+					return
+				}
+			}
+			statusRes, err = game.Status()
 			if err != nil {
-				panic(err)
+				fmt.Printf("Cannot get game status!")
+				return
 			}
 		}
+		if statusRes.LastGameStatus == "lose" {
+			gameUi.EndText.SetText("You lose!")
+			return
+		}
+		gameUi.EndText.SetText("You won!")
 	}()
-	ui.Start(ctx, nil)
 
+	ctx := context.Background()
+	gameUi.Controller.Start(ctx, nil)
 }
