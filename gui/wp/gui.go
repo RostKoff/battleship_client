@@ -82,7 +82,6 @@ func (ui *GameUI) HandleOppShot(pShips []string, oppShot string) error {
 	return err
 }
 
-// Sunk algorithm has a bug, out of bounce
 func (ui *GameUI) HandlePShot(fireResponse string, coord string) error {
 	switch fireResponse {
 	case "hit":
@@ -114,8 +113,11 @@ func (ui *GameUI) HandlePShot(fireResponse string, coord string) error {
 	return nil
 }
 
-func (ui *GameUI) handleSunk(x int, y int, checked [][2]int) error {
+func (ui *GameUI) handleSunk(x int, y int, checked *[][2]int) error {
 	board := ui.OppBoard.states
+	if board[x][y] == gui.Miss {
+		return nil
+	}
 	if board[x][y] != gui.Hit {
 		err := ui.OppBoard.UpdateStateWithDigitCoords(x, y, gui.Miss)
 		if err != nil {
@@ -123,10 +125,17 @@ func (ui *GameUI) handleSunk(x int, y int, checked [][2]int) error {
 		}
 		return nil
 	}
-	checked = append(checked, [2]int{x, y})
+	if checked == nil {
+		s := make([][2]int, 0)
+		checked = &s
+	}
+	*checked = append(*checked, [2]int{x, y})
 	for i := x - 1; i <= x+1; i++ {
+		if i < 0 || i > 9 {
+			continue
+		}
 		for j := y - 1; j <= y+1; j++ {
-			if x > 9 || y > 9 || x < 0 || y < 0 || slices.Contains(checked, [2]int{i, j}) {
+			if j > 9 || j < 0 || slices.Contains(*checked, [2]int{i, j}) {
 				continue
 			}
 			err := ui.handleSunk(i, j, checked)

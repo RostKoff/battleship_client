@@ -54,7 +54,7 @@ func main() {
 					}
 				}
 				gameUi.TurnText.SetText("Your turn!")
-				coord := gameUi.OppBoard.Listen()
+				coord := gameUi.OppBoard.ListenForShot()
 				fireRes, err := game.Fire(coord)
 				if err != nil {
 					fmt.Printf("Failed to fire")

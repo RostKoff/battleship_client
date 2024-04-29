@@ -18,10 +18,16 @@ type GameBoard struct {
 func InitGameBoard(x int, y int, cfg *gui.BoardConfig) *GameBoard {
 	b := GameBoard{}
 	b.Board = gui.NewBoard(x, y, cfg)
-	b.Nick = gui.NewText(x, y+25, "", nil)
-	b.Desc = gui.NewText(x, y+26, "", nil)
+	b.Nick = gui.NewText(x, y+22, "", nil)
+	b.Desc = gui.NewText(x, y+23, "", nil)
 	b.Board.SetStates(b.states)
 	return &b
+}
+
+func (b *GameBoard) SetPlayerInfo(nick string, desc string) {
+	b.Nick.SetText(nick)
+	b.Desc.SetText(desc)
+
 }
 
 func (b *GameBoard) UpdateState(coords string, state gui.State) error {
@@ -46,8 +52,17 @@ func (b *GameBoard) UpdateStateWithDigitCoords(letterCoord int, numCoord int, st
 	return nil
 }
 
-func (b *GameBoard) Listen() string {
-	return b.Board.Listen(context.Background())
+func (b *GameBoard) ListenForShot() string {
+	coords := ""
+	for {
+		coords = b.Board.Listen(context.Background())
+		c, _ := ConvertCoords(coords)
+		state := b.states[c[0]][c[1]]
+		if state == gui.Empty || state == "" {
+			break
+		}
+	}
+	return coords
 }
 
 func ConvertCoords(coords string) ([2]int, error) {
