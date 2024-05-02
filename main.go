@@ -7,7 +7,7 @@ import (
 
 func main() {
 	settings := client.GameSettings{
-		AgainstBot: false,
+		AgainstBot: true,
 		Nick:       "Rost",
 	}
 

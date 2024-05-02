@@ -3,31 +3,33 @@ package cli
 import (
 	"fmt"
 	"slices"
-	"time"
 
 	gui "github.com/grupawp/warships-gui/v2"
 )
 
 type GameUI struct {
-	Controller *gui.GUI
-	PBoard     *GameBoard
-	OppBoard   *GameBoard
-	EndText    *gui.Text
-	TurnText   *gui.Text
-	HitText    *gui.Text
-	TimerGui   *gui.Text
-	Timer      int
+	Controller  *gui.GUI
+	PBoard      *GameBoard
+	OppBoard    *GameBoard
+	EndText     *gui.Text
+	TurnText    *gui.Text
+	HitText     *gui.Text
+	PlayersText *gui.Text
+	ErrorText   *gui.Text
+	Timer       *gui.Text
 }
 
 func InitGameUI() *GameUI {
 	ui := GameUI{
-		Controller: gui.NewGUI(true),
-		PBoard:     InitGameBoard(1, 3, nil),
-		OppBoard:   InitGameBoard(50, 3, nil),
-		EndText:    gui.NewText(1, 1, "", nil),
-		TurnText:   gui.NewText(50, 1, "", nil),
-		TimerGui:   gui.NewText(10, 1, "", nil),
-		HitText:    gui.NewText(20, 1, "", nil),
+		Controller:  gui.NewGUI(true),
+		PBoard:      InitGameBoard(1, 3, nil),
+		OppBoard:    InitGameBoard(50, 3, nil),
+		EndText:     gui.NewText(1, 1, "", nil),
+		TurnText:    gui.NewText(50, 1, "", nil),
+		Timer:       gui.NewText(10, 1, "", nil),
+		HitText:     gui.NewText(20, 1, "", nil),
+		PlayersText: gui.NewText(1, 25, "", nil),
+		ErrorText:   gui.NewText(50, 25, "", nil),
 	}
 
 	drawables := []gui.Drawable{
@@ -39,8 +41,10 @@ func InitGameUI() *GameUI {
 		ui.PBoard.Nick,
 		ui.EndText,
 		ui.TurnText,
-		ui.TimerGui,
+		ui.Timer,
 		ui.HitText,
+		ui.PlayersText,
+		ui.ErrorText,
 	}
 	for _, drawable := range drawables {
 		ui.Controller.Draw(drawable)
@@ -67,22 +71,6 @@ func (ui *GameUI) HandleOppShots(pShips []string, oppShots []string) error {
 		}
 	}
 	return nil
-}
-
-func (ui *GameUI) HandleOppShot(pShips []string, oppShot string) error {
-	state := gui.Miss
-	for _, ship := range pShips {
-		if ship == oppShot {
-			state = gui.Hit
-			break
-		}
-	}
-	err := ui.PBoard.UpdateState(oppShot, state)
-	if err != nil {
-		err = fmt.Errorf("failed to update state: %w", err)
-	}
-	ui.Controller.Log("shot: %s\tships: %s\tstate:%s\n", oppShot, pShips, state)
-	return err
 }
 
 func (ui *GameUI) HandlePShot(fireResponse string, coord string) error {
@@ -148,23 +136,4 @@ func (ui *GameUI) handleSunk(x int, y int, checked *[][2]int) error {
 		}
 	}
 	return nil
-}
-
-func (ui *GameUI) DecreaseTimer(stopChan chan bool) {
-	for ui.Timer > 0 {
-		select {
-		case <-stopChan:
-			return
-		default:
-			ui.Timer--
-			ui.TimerGui.SetText(fmt.Sprintf("Time: %d", ui.Timer))
-			time.Sleep(time.Second)
-		}
-
-	}
-}
-
-func (ui *GameUI) SetTimer(seconds int) {
-	ui.Timer = seconds
-	ui.TimerGui.SetText(fmt.Sprintf("Time: %d", seconds))
 }
