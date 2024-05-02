@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 )
 
 const (
@@ -14,8 +15,9 @@ const (
 	unmarshalErr = "failed to unmarshal from ReadCloser"
 )
 
-type Game struct {
-	Token string
+type GameClient struct {
+	client http.Client
+	Token  string
 }
 
 type GameSettings struct {
@@ -48,18 +50,19 @@ type boardResponse struct {
 	Message string
 }
 
-func InitGame(settings GameSettings) (Game, error) {
+func InitGame(settings GameSettings) (GameClient, error) {
 	requestBody, err := json.Marshal(settings)
-	game := Game{}
+	c := http.Client{Timeout: 3 * time.Second}
+	game := GameClient{client: c}
 	if err != nil {
 		return game, fmt.Errorf("failed to marshal settings to json: %w", err)
 	}
 	r := bytes.NewReader(requestBody)
-	res, err := http.Post(serverApi+"/game", "application/json", r)
+	res, err := c.Post(serverApi+"/game", "application/json", r)
 	if err != nil {
 		return game, fmt.Errorf("failed to send POST request: %w", err)
 	}
-	if res.StatusCode == 400 {
+	if res.StatusCode != 200 {
 		responseBody, err := unmarshalFromReadCloser[map[string]any](&res.Body)
 		if err != nil {
 			return game, fmt.Errorf("%s: %w", unmarshalErr, err)
@@ -74,7 +77,7 @@ func InitGame(settings GameSettings) (Game, error) {
 	return game, nil
 }
 
-func (g Game) Board() ([]string, error) {
+func (g GameClient) Board() ([]string, error) {
 	res, err := g.sendRequest(http.MethodGet, "/game/board", nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send GET request: %w", err)
@@ -89,7 +92,7 @@ func (g Game) Board() ([]string, error) {
 	return boardRes.Board, err
 }
 
-func (g Game) Status() (StatusResponse, error) {
+func (g GameClient) Status() (StatusResponse, error) {
 	statusRes := StatusResponse{}
 	res, err := g.sendRequest(http.MethodGet, "/game", nil)
 	if err != nil {
@@ -99,13 +102,13 @@ func (g Game) Status() (StatusResponse, error) {
 	if err != nil {
 		return statusRes, fmt.Errorf("%s: %w", unmarshalErr, err)
 	}
-	if res.StatusCode == 403 || res.StatusCode == 401 || res.StatusCode == 429 {
+	if res.StatusCode != 200 {
 		return statusRes, fmt.Errorf("response error: %s", statusRes.Message)
 	}
 	return statusRes, nil
 }
 
-func (g Game) Fire(coord string) (string, error) {
+func (g GameClient) Fire(coord string) (string, error) {
 	coords := make(map[string]string)
 	coords["coord"] = coord
 	reqBody, err := json.Marshal(coords)
@@ -136,7 +139,7 @@ func (g Game) Fire(coord string) (string, error) {
 	return result, nil
 }
 
-func (g Game) PlayerDescriptions() (DescriptionResponse, error) {
+func (g GameClient) PlayerDescriptions() (DescriptionResponse, error) {
 	descriptionRes := DescriptionResponse{}
 	res, err := g.sendRequest(http.MethodGet, "/game/desc", nil)
 	if err != nil {
@@ -152,13 +155,13 @@ func (g Game) PlayerDescriptions() (DescriptionResponse, error) {
 	return descriptionRes, nil
 }
 
-func (g Game) sendRequest(method string, path string, body io.Reader) (*http.Response, error) {
+func (g GameClient) sendRequest(method string, path string, body io.Reader) (*http.Response, error) {
 	req, err := http.NewRequest(method, fmt.Sprintf("%s%s", serverApi, path), body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new http request: %w", err)
 	}
 	req.Header.Add(tokenKey, g.Token)
-	res, err := http.DefaultClient.Do(req)
+	res, err := g.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send http request: %w", err)
 	}

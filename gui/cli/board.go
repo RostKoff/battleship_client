@@ -1,4 +1,4 @@
-package wp
+package cli
 
 import (
 	"context"
@@ -24,12 +24,6 @@ func InitGameBoard(x int, y int, cfg *gui.BoardConfig) *GameBoard {
 	return &b
 }
 
-func (b *GameBoard) SetPlayerInfo(nick string, desc string) {
-	b.Nick.SetText(nick)
-	b.Desc.SetText(desc)
-
-}
-
 func (b *GameBoard) UpdateState(coords string, state gui.State) error {
 	c, err := ConvertCoords(coords)
 	if err != nil {
@@ -52,6 +46,7 @@ func (b *GameBoard) UpdateStateWithDigitCoords(letterCoord int, numCoord int, st
 	return nil
 }
 
+// ! Function to consider
 func (b *GameBoard) ListenForShot() string {
 	coords := ""
 	for {

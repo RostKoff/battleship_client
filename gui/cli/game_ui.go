@@ -1,8 +1,10 @@
-package wp
+package cli
 
 import (
+	"context"
 	"fmt"
 	"slices"
+	"time"
 
 	gui "github.com/grupawp/warships-gui/v2"
 )
@@ -14,7 +16,8 @@ type GameUI struct {
 	EndText    *gui.Text
 	TurnText   *gui.Text
 	HitText    *gui.Text
-	Timer      *gui.Text
+	TimerGui   *gui.Text
+	Timer      int
 }
 
 func InitGameUI() *GameUI {
@@ -24,7 +27,7 @@ func InitGameUI() *GameUI {
 		OppBoard:   InitGameBoard(50, 3, nil),
 		EndText:    gui.NewText(1, 1, "", nil),
 		TurnText:   gui.NewText(50, 1, "", nil),
-		Timer:      gui.NewText(10, 1, "", nil),
+		TimerGui:   gui.NewText(10, 1, "", nil),
 		HitText:    gui.NewText(20, 1, "", nil),
 	}
 
@@ -37,7 +40,7 @@ func InitGameUI() *GameUI {
 		ui.PBoard.Nick,
 		ui.EndText,
 		ui.TurnText,
-		ui.Timer,
+		ui.TimerGui,
 		ui.HitText,
 	}
 	for _, drawable := range drawables {
@@ -46,33 +49,13 @@ func InitGameUI() *GameUI {
 	return &ui
 }
 
-func (ui *GameUI) HandleOppShots(pShips []string, oppShots []string) error {
-	for _, shot := range oppShots {
-		state := gui.Miss
-		for _, ship := range pShips {
-			if ship == shot {
-				state = gui.Hit
-				break
-			}
-		}
-		err := ui.PBoard.UpdateState(shot, state)
-		if err != nil {
-			return fmt.Errorf("failed to update state: %w", err)
-		}
-	}
-	return nil
-}
-
 func (ui *GameUI) HandleOppShot(pShips []string, oppShot string) error {
-	var state gui.State
+	state := gui.Miss
 	for _, ship := range pShips {
 		if ship == oppShot {
 			state = gui.Hit
 			break
 		}
-	}
-	if state == "" {
-		state = gui.Miss
 	}
 	err := ui.PBoard.UpdateState(oppShot, state)
 	if err != nil {
@@ -145,4 +128,23 @@ func (ui *GameUI) handleSunk(x int, y int, checked *[][2]int) error {
 		}
 	}
 	return nil
+}
+
+func (ui *GameUI) DecreaseTimer(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			ui.Timer--
+			ui.TimerGui.SetText(fmt.Sprint(ui.Timer))
+			time.Sleep(time.Second)
+
+		}
+	}
+}
+
+func (ui *GameUI) SetTimer(seconds int) {
+	ui.Timer = seconds
+	ui.TimerGui.SetText(fmt.Sprint(seconds))
 }
