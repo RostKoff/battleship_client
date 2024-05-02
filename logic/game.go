@@ -19,7 +19,6 @@ func StartGame(gs client.GameSettings) {
 		return
 	}
 	ctx := context.Background()
-
 	for {
 		statusRes, err = apiClient.Status()
 		if err != nil {
@@ -41,43 +40,47 @@ func StartGame(gs client.GameSettings) {
 		gameUi.PBoard.UpdateState(coord, warships_gui.Ship)
 	}
 	go func() {
+		stopChan := make(chan bool)
+		oppShotCount := 0
 		for {
-			gameUi.SetTimer(statusRes.Timer)
-			if statusRes.Status == "ended" {
-				break
-			}
-			if !statusRes.ShouldFire {
-				gameUi.TurnText.SetText("")
-				time.Sleep(time.Second)
-			} else {
-				ctx2, cancel := context.WithCancel(ctx)
-				cancel()
-				go gameUi.DecreaseTimer(ctx2)
-				gameUi.TurnText.SetText("Your turn!")
-				if size := len(statusRes.OpponentShots); size > 0 {
-					err = gameUi.HandleOppShot(board, statusRes.OpponentShots[size-1])
-					if err != nil {
-						fmt.Printf("Failed to draw opponent shot\n")
-						return
-					}
-				}
-				coord := gameUi.OppBoard.ListenForShot()
-				fireRes, err := apiClient.Fire(coord)
-				if err != nil {
-					fmt.Printf("Failed to fire\n")
-					return
-				}
-				err = gameUi.HandlePShot(fireRes, coord)
-				if err != nil {
-					fmt.Printf("Failed to handle player shot\n")
-					return
-				}
-				cancel()
-			}
 			statusRes, err = apiClient.Status()
 			if err != nil {
 				fmt.Printf("Cannot get game status!\n")
 				return
+			}
+			if size := len(statusRes.OpponentShots); oppShotCount != size {
+				err = gameUi.HandleOppShots(board, statusRes.OpponentShots)
+				if err != nil {
+					fmt.Printf("Failed to draw opponent shot\n")
+					return
+				}
+				oppShotCount = size
+			}
+			if statusRes.Status == "ended" {
+				break
+			}
+			if !statusRes.ShouldFire {
+				gameUi.TurnText.SetText("Opponent Turn")
+				gameUi.TimerGui.SetText("Time: -")
+				time.Sleep(time.Second)
+			} else {
+				gameUi.SetTimer(statusRes.Timer)
+				go gameUi.DecreaseTimer(stopChan)
+				gameUi.TurnText.SetText("Your turn!")
+				coord := gameUi.OppBoard.ListenForShot()
+				fireRes, err := apiClient.Fire(coord)
+				if err != nil {
+					fmt.Printf("Failed to fire\n")
+					gameUi.Controller.Log(err.Error())
+					continue
+				}
+				err = gameUi.HandlePShot(fireRes, coord)
+				if err != nil {
+					fmt.Printf("Failed to handle player shot\n")
+					gameUi.Controller.Log(err.Error())
+					continue
+				}
+				stopChan <- true
 			}
 		}
 		if statusRes.LastGameStatus == "lose" {
@@ -85,6 +88,9 @@ func StartGame(gs client.GameSettings) {
 			return
 		}
 		gameUi.EndText.SetText("You won!\n")
+	}()
+	go func() {
+
 	}()
 
 	gameUi.Controller.Start(ctx, nil)

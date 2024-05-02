@@ -6,7 +6,10 @@ import (
 )
 
 func main() {
-	settings := client.GameSettings{AgainstBot: true}
+	settings := client.GameSettings{
+		AgainstBot: false,
+		Nick:       "Rost",
+	}
 
 	logic.StartGame(settings)
 }

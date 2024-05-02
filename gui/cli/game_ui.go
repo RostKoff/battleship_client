@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"context"
 	"fmt"
 	"slices"
 	"time"
@@ -47,6 +46,27 @@ func InitGameUI() *GameUI {
 		ui.Controller.Draw(drawable)
 	}
 	return &ui
+}
+
+func (ui *GameUI) HandleOppShots(pShips []string, oppShots []string) error {
+	pShipsCopy := make([]string, len(pShips))
+	copy(pShipsCopy, pShips)
+
+	for _, shot := range oppShots {
+		state := gui.Miss
+		for n, ship := range pShipsCopy {
+			if shot == ship {
+				state = gui.Hit
+				pShipsCopy = append(pShipsCopy[:n], pShipsCopy[n+1:]...)
+				break
+			}
+		}
+		err := ui.PBoard.UpdateState(shot, state)
+		if err != nil {
+			return fmt.Errorf("failed to update state: %w", err)
+		}
+	}
+	return nil
 }
 
 func (ui *GameUI) HandleOppShot(pShips []string, oppShot string) error {
@@ -130,21 +150,21 @@ func (ui *GameUI) handleSunk(x int, y int, checked *[][2]int) error {
 	return nil
 }
 
-func (ui *GameUI) DecreaseTimer(ctx context.Context) {
-	for {
+func (ui *GameUI) DecreaseTimer(stopChan chan bool) {
+	for ui.Timer > 0 {
 		select {
-		case <-ctx.Done():
+		case <-stopChan:
 			return
 		default:
 			ui.Timer--
-			ui.TimerGui.SetText(fmt.Sprint(ui.Timer))
+			ui.TimerGui.SetText(fmt.Sprintf("Time: %d", ui.Timer))
 			time.Sleep(time.Second)
-
 		}
+
 	}
 }
 
 func (ui *GameUI) SetTimer(seconds int) {
 	ui.Timer = seconds
-	ui.TimerGui.SetText(fmt.Sprint(seconds))
+	ui.TimerGui.SetText(fmt.Sprintf("Time: %d", seconds))
 }
