@@ -37,10 +37,9 @@ func InitGameUI() *GameUI {
 
 	drawables := []gui.Drawable{
 		ui.PBoard.Board,
-		ui.PBoard.Desc,
 		ui.PBoard.Nick,
+		ui.OppBoard.Nick,
 		ui.OppBoard.Board,
-		ui.OppBoard.Desc,
 		ui.PBoard.Nick,
 		ui.EndText,
 		ui.TurnText,
@@ -141,6 +140,17 @@ func (ui *GameUI) handleSunk(x int, y int, checked *[][2]int) error {
 	return nil
 }
 
-func (ui *GameUI) PrintNicks(pNick string, oppNick string) {
-	ui.PlayersText.SetText(fmt.Sprintf("%s vs %s", pNick, oppNick))
+func (ui *GameUI) DrawNicks(pNick string, oppNick string) {
+	ui.PBoard.Nick.SetText(pNick)
+	ui.OppBoard.Nick.SetText(oppNick)
+}
+
+func (ui *GameUI) PlaceAndDrawDescriptions(pDesc string, oppDesc string) {
+	ui.PBoard.PlaceDescription(42, pDesc)
+	ui.OppBoard.PlaceDescription(42, oppDesc)
+
+	drawables := slices.Concat(ui.PBoard.Desc, ui.OppBoard.Desc)
+	for _, drawable := range drawables {
+		ui.Controller.Draw(drawable)
+	}
 }

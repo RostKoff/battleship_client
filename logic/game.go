@@ -43,7 +43,12 @@ func StartGame(gs client.GameSettings) error {
 	for _, coord := range board {
 		gameUi.PBoard.UpdateState(coord, warships_gui.Ship)
 	}
-	gameUi.PrintNicks(statusRes.Nick, statusRes.Opponent)
+	gameUi.DrawNicks(statusRes.Nick, statusRes.Opponent)
+
+	descs, err := apiClient.PlayerDescriptions()
+
+	gameUi.PlaceAndDrawDescriptions(descs.PlayerDescription, descs.OpponentDescription)
+
 	ctx := context.Background()
 	// Context to cancel additional goroutine after game is finished.
 	mainEnd, cancel := context.WithCancel(context.Background())

@@ -4,22 +4,26 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
 	gui "github.com/grupawp/warships-gui/v2"
 )
 
 type GameBoard struct {
+	xCoord int
+	yCoord int
 	Nick   *gui.Text
-	Desc   *gui.Text
+	Desc   []*gui.Text
 	Board  *gui.Board
 	states [10][10]gui.State
 }
 
 func InitGameBoard(x int, y int, cfg *gui.BoardConfig) *GameBoard {
 	b := GameBoard{}
+	b.xCoord = x
+	b.yCoord = y
 	b.Board = gui.NewBoard(x, y, cfg)
 	b.Nick = gui.NewText(x, y+22, "", nil)
-	b.Desc = gui.NewText(x, y+23, "", nil)
 	b.Board.SetStates(b.states)
 	return &b
 }
@@ -77,4 +81,25 @@ func ConvertCoords(coords string) ([2]int, error) {
 	values[0] = letterCoord
 	values[1] = numCoord
 	return values, nil
+}
+
+func (b *GameBoard) PlaceDescription(charsOnLine int, desc string) {
+	words := strings.Split(desc, " ")
+	textBlobs := make([]*gui.Text, 0)
+	currentLineChars := -1
+	lineCoord := 23 + b.yCoord
+	prevChar := 0
+	for n, word := range words {
+		currentLineChars = currentLineChars + len(word) + 1
+		if currentLineChars > charsOnLine {
+			text := strings.Join(words[prevChar:n], " ")
+			textBlobs = append(textBlobs, gui.NewText(b.xCoord, lineCoord, text, nil))
+			prevChar = n
+			lineCoord++
+			currentLineChars = -1
+		}
+	}
+	text := strings.Join(words[prevChar:], " ")
+	textBlobs = append(textBlobs, gui.NewText(b.xCoord, lineCoord, text, nil))
+	b.Desc = textBlobs
 }

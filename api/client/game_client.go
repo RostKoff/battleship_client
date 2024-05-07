@@ -22,7 +22,7 @@ type GameClient struct {
 
 type GameSettings struct {
 	Coords      []string `json:"coords"`
-	Description string   `json:"description"`
+	Description string   `json:"desc"`
 	Nick        string   `json:"nick"`
 	TargetNick  string   `json:"target_nick"`
 	AgainstBot  bool     `json:"wpbot"`
