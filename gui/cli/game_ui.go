@@ -32,6 +32,9 @@ func InitGameUI() *GameUI {
 		ErrorText:   gui.NewText(50, 25, "", nil),
 	}
 
+	ui.ErrorText.SetBgColor(gui.Red)
+	ui.ErrorText.SetFgColor(gui.White)
+
 	drawables := []gui.Drawable{
 		ui.PBoard.Board,
 		ui.PBoard.Desc,
@@ -136,4 +139,8 @@ func (ui *GameUI) handleSunk(x int, y int, checked *[][2]int) error {
 		}
 	}
 	return nil
+}
+
+func (ui *GameUI) PrintNicks(pNick string, oppNick string) {
+	ui.PlayersText.SetText(fmt.Sprintf("%s vs %s", pNick, oppNick))
 }
