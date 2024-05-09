@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"strings"
 
 	gui "github.com/grupawp/warships-gui/v2"
 )
@@ -81,25 +80,4 @@ func ConvertCoords(coords string) ([2]int, error) {
 	values[0] = letterCoord
 	values[1] = numCoord
 	return values, nil
-}
-
-func (b *GameBoard) PlaceDescription(charsOnLine int, desc string) {
-	words := strings.Split(desc, " ")
-	textBlobs := make([]*gui.Text, 0)
-	currentLineChars := -1
-	lineCoord := 23 + b.yCoord
-	prevChar := 0
-	for n, word := range words {
-		currentLineChars = currentLineChars + len(word) + 1
-		if currentLineChars > charsOnLine {
-			text := strings.Join(words[prevChar:n], " ")
-			textBlobs = append(textBlobs, gui.NewText(b.xCoord, lineCoord, text, nil))
-			prevChar = n
-			lineCoord++
-			currentLineChars = -1
-		}
-	}
-	text := strings.Join(words[prevChar:], " ")
-	textBlobs = append(textBlobs, gui.NewText(b.xCoord, lineCoord, text, nil))
-	b.Desc = textBlobs
 }

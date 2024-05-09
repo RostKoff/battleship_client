@@ -52,7 +52,7 @@ type boardResponse struct {
 
 func InitGame(settings GameSettings) (GameClient, error) {
 	requestBody, err := json.Marshal(settings)
-	c := http.Client{Timeout: 3 * time.Second}
+	c := http.Client{Timeout: 5 * time.Second}
 	game := GameClient{client: c}
 	if err != nil {
 		return game, fmt.Errorf("failed to marshal settings to json: %w", err)

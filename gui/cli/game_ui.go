@@ -3,33 +3,30 @@ package cli
 import (
 	"fmt"
 	"slices"
+	"strings"
 
 	gui "github.com/grupawp/warships-gui/v2"
 )
 
 type GameUI struct {
-	Controller  *gui.GUI
-	PBoard      *GameBoard
-	OppBoard    *GameBoard
-	EndText     *gui.Text
-	TurnText    *gui.Text
-	HitText     *gui.Text
-	PlayersText *gui.Text
-	ErrorText   *gui.Text
-	Timer       *gui.Text
+	Controller *gui.GUI
+	PBoard     *GameBoard
+	OppBoard   *GameBoard
+	EndText    *gui.Text
+	TurnText   *gui.Text
+	ErrorText  *gui.Text
+	Timer      *gui.Text
 }
 
 func InitGameUI() *GameUI {
 	ui := GameUI{
-		Controller:  gui.NewGUI(true),
-		PBoard:      InitGameBoard(1, 3, nil),
-		OppBoard:    InitGameBoard(50, 3, nil),
-		EndText:     gui.NewText(1, 1, "", nil),
-		TurnText:    gui.NewText(50, 1, "", nil),
-		Timer:       gui.NewText(10, 1, "", nil),
-		HitText:     gui.NewText(20, 1, "", nil),
-		PlayersText: gui.NewText(1, 25, "", nil),
-		ErrorText:   gui.NewText(50, 25, "", nil),
+		Controller: gui.NewGUI(true),
+		PBoard:     InitGameBoard(1, 5, nil),
+		OppBoard:   InitGameBoard(50, 5, nil),
+		EndText:    gui.NewText(50, 1, "", nil),
+		TurnText:   gui.NewText(1, 1, "", nil),
+		Timer:      gui.NewText(1, 3, "", nil),
+		ErrorText:  gui.NewText(50, 3, "", nil),
 	}
 
 	ui.ErrorText.SetBgColor(gui.Red)
@@ -44,8 +41,6 @@ func InitGameUI() *GameUI {
 		ui.EndText,
 		ui.TurnText,
 		ui.Timer,
-		ui.HitText,
-		ui.PlayersText,
 		ui.ErrorText,
 	}
 	for _, drawable := range drawables {
@@ -106,6 +101,9 @@ func (ui *GameUI) HandlePShot(fireResponse string, coord string) error {
 	return nil
 }
 
+// Recurrently fills the cells with the value "missed" around the sunken ship.
+// Takes as arguments coordinates x and y of the cell with value "hit",
+// and also a table with already visited hit cells.
 func (ui *GameUI) handleSunk(x int, y int, checked *[][2]int) error {
 	board := ui.OppBoard.states
 	if board[x][y] == gui.Miss {
@@ -146,11 +144,55 @@ func (ui *GameUI) DrawNicks(pNick string, oppNick string) {
 }
 
 func (ui *GameUI) PlaceAndDrawDescriptions(pDesc string, oppDesc string) {
-	ui.PBoard.PlaceDescription(42, pDesc)
-	ui.OppBoard.PlaceDescription(42, oppDesc)
-
-	drawables := slices.Concat(ui.PBoard.Desc, ui.OppBoard.Desc)
+	pDescText := SplitLongText(ui.PBoard.xCoord, ui.PBoard.yCoord, 42, pDesc)
+	oppDescText := SplitLongText(ui.OppBoard.xCoord, ui.OppBoard.yCoord, 42, oppDesc)
+	drawables := slices.Concat(pDescText, oppDescText)
 	for _, drawable := range drawables {
 		ui.Controller.Draw(drawable)
 	}
+}
+
+func SplitLongText(xCoord, yCoord, charsOnLine int, text string) []*gui.Text {
+	words := strings.Split(text, " ")
+	textBlobs := make([]*gui.Text, 0)
+	currentLineChars := -1
+	lineCoord := 23 + yCoord
+	prevChar := 0
+	for n, word := range words {
+		wordLen := len(word)
+		currentLineChars = currentLineChars + wordLen + 1
+		if currentLineChars > charsOnLine && n != prevChar {
+			textLine := strings.Join(words[prevChar:n], " ")
+			textBlobs = append(textBlobs, gui.NewText(xCoord, lineCoord, textLine, nil))
+			prevChar = n
+			lineCoord++
+			currentLineChars = -1
+		}
+		if wordLen > charsOnLine {
+			splittedWord := splitWord(charsOnLine, word)
+			for _, wordPart := range splittedWord {
+				textBlobs = append(textBlobs, gui.NewText(xCoord, lineCoord, wordPart, nil))
+				lineCoord++
+			}
+			prevChar = n + 1
+			currentLineChars = -1
+		}
+	}
+	textLine := strings.Join(words[prevChar:], " ")
+	textBlobs = append(textBlobs, gui.NewText(xCoord, lineCoord, textLine, nil))
+	return textBlobs
+}
+
+func splitWord(charsOnLine int, word string) []string {
+	wordLen := len(word)
+	splitGap := charsOnLine - 1
+	splittedParts := make([]string, 0)
+	for i := 0; i < wordLen; i += splitGap {
+		if lastIndex := i + splitGap; lastIndex <= wordLen {
+			splittedParts = append(splittedParts, word[i:lastIndex]+"-")
+		} else {
+			splittedParts = append(splittedParts, word[i:])
+		}
+	}
+	return splittedParts
 }
