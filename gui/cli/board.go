@@ -1,4 +1,4 @@
-package wp
+package cli
 
 import (
 	"context"
@@ -9,25 +9,22 @@ import (
 )
 
 type GameBoard struct {
+	xCoord int
+	yCoord int
 	Nick   *gui.Text
-	Desc   *gui.Text
+	Desc   []*gui.Text
 	Board  *gui.Board
 	states [10][10]gui.State
 }
 
 func InitGameBoard(x int, y int, cfg *gui.BoardConfig) *GameBoard {
 	b := GameBoard{}
+	b.xCoord = x
+	b.yCoord = y
 	b.Board = gui.NewBoard(x, y, cfg)
 	b.Nick = gui.NewText(x, y+22, "", nil)
-	b.Desc = gui.NewText(x, y+23, "", nil)
 	b.Board.SetStates(b.states)
 	return &b
-}
-
-func (b *GameBoard) SetPlayerInfo(nick string, desc string) {
-	b.Nick.SetText(nick)
-	b.Desc.SetText(desc)
-
 }
 
 func (b *GameBoard) UpdateState(coords string, state gui.State) error {
@@ -52,6 +49,7 @@ func (b *GameBoard) UpdateStateWithDigitCoords(letterCoord int, numCoord int, st
 	return nil
 }
 
+// ! Function to consider
 func (b *GameBoard) ListenForShot() string {
 	coords := ""
 	for {
