@@ -7,6 +7,8 @@ import (
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/hashicorp/go-retryablehttp"
 )
 
 const (
@@ -16,7 +18,7 @@ const (
 )
 
 type GameClient struct {
-	client http.Client
+	client *retryablehttp.Client
 	Token  string
 }
 
@@ -52,7 +54,11 @@ type boardResponse struct {
 
 func InitGame(settings GameSettings) (GameClient, error) {
 	requestBody, err := json.Marshal(settings)
-	c := http.Client{Timeout: 5 * time.Second}
+	c := retryablehttp.NewClient()
+	c.RetryMax = 5
+	c.RetryWaitMin = time.Second
+	c.RetryWaitMax = time.Second * 3
+	c.Logger = nil
 	game := GameClient{client: c}
 	if err != nil {
 		return game, fmt.Errorf("failed to marshal settings to json: %w", err)
@@ -156,7 +162,7 @@ func (g GameClient) PlayerDescriptions() (DescriptionResponse, error) {
 }
 
 func (g GameClient) sendRequest(method string, path string, body io.Reader) (*http.Response, error) {
-	req, err := http.NewRequest(method, fmt.Sprintf("%s%s", serverApi, path), body)
+	req, err := retryablehttp.NewRequest(method, fmt.Sprintf("%s%s", serverApi, path), body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new http request: %w", err)
 	}

@@ -22,19 +22,11 @@ func StartGame(gs client.GameSettings) error {
 	errMsgChan := make(chan string)
 
 	// Requesting the API for the status of the game until it is started.
-	// Returns an error if the status request failed more times than specified in `maxNumErr`.
-	maxErrNum := 5
-	for errCount := 0; ; {
+	for {
 		statusRes, err = apiClient.Status()
 		if err != nil {
-			if errCount > maxErrNum {
-				return fmt.Errorf("failed to get game status: %w", err)
-			}
-			gameUi.Controller.Log("Status Error %d: %s", errCount+1, err.Error())
-			errCount++
-			continue
+			return fmt.Errorf("failed to get game status: %w", err)
 		}
-		errCount = 0
 		if statusRes.Status != "game_in_progress" {
 			time.Sleep(time.Second)
 			continue
@@ -116,7 +108,7 @@ func StartGame(gs client.GameSettings) error {
 				coord := gameUi.OppBoard.ListenForShot()
 				fireRes, err := apiClient.Fire(coord)
 				if err != nil {
-					errMsgChan <- err.Error()
+					errMsgChan <- "Failed to fire!"
 					gameUi.Controller.Log(fmt.Sprintf("Fire error: %s", err.Error()))
 					continue
 				}
@@ -142,7 +134,6 @@ func StartGame(gs client.GameSettings) error {
 				break mainLoop
 			case errMsg := <-errMsgChan:
 				gameUi.ErrorText.SetText(errMsg)
-				// ! Ask about Stop Function
 				errTimer.Stop()
 				errTimer.Reset(time.Second * 3)
 			case <-errTimer.C:
