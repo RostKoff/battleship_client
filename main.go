@@ -3,20 +3,19 @@ package main
 import (
 	"battleship_client/api/client"
 	"battleship_client/logic"
-	"fmt"
+	"context"
+
+	wGui "github.com/RostKoff/warships-gui/v2"
 )
 
 func main() {
-	settings := client.GameSettings{
-		AgainstBot:  true,
-		Nick:        "Zamog",
-		Description: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-	}
-	err := logic.StartGame(settings)
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	// splitted := cli.SplitWord(3, "AAAAAAA")
-	// fmt.Println(splitted)
+	gui := wGui.NewGUI(true)
+	ctx := context.Background()
+	ch := make(chan client.GameSettings)
+	go logic.DisplayGameSettings(gui, ch)
+	go func() {
+		settings := <-ch
+		logic.StartGame(gui, settings)
+	}()
+	gui.Start(ctx, nil)
 }

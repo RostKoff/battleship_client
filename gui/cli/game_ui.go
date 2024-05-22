@@ -5,7 +5,7 @@ import (
 	"slices"
 	"strings"
 
-	gui "github.com/grupawp/warships-gui/v2"
+	gui "github.com/RostKoff/warships-gui/v2"
 )
 
 type GameUI struct {
@@ -18,9 +18,9 @@ type GameUI struct {
 	Timer      *gui.Text
 }
 
-func InitGameUI() *GameUI {
+func InitGameUI(controller *gui.GUI) *GameUI {
 	ui := GameUI{
-		Controller: gui.NewGUI(true),
+		Controller: controller,
 		PBoard:     InitGameBoard(1, 5, nil),
 		OppBoard:   InitGameBoard(50, 5, nil),
 		EndText:    gui.NewText(50, 1, "", nil),

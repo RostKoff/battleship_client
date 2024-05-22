@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
-	gui "github.com/grupawp/warships-gui/v2"
+	gui "github.com/RostKoff/warships-gui/v2"
 )
 
 type GameBoard struct {
