@@ -52,19 +52,28 @@ type boardResponse struct {
 	Message string
 }
 
-func InitGame(settings GameSettings) (GameClient, error) {
-	requestBody, err := json.Marshal(settings)
-	c := retryablehttp.NewClient()
+type LobbyGame struct {
+	Status string `json:"game_status"`
+	Nick   string `json:"nick"`
+}
+
+func newRetryableClient() (c *retryablehttp.Client) {
+	c = retryablehttp.NewClient()
 	c.RetryMax = 5
 	c.RetryWaitMin = time.Second
 	c.RetryWaitMax = time.Second * 3
 	c.Logger = nil
-	game := GameClient{client: c}
+	return
+}
+
+func InitGame(settings GameSettings) (GameClient, error) {
+	requestBody, err := json.Marshal(settings)
+	game := GameClient{client: newRetryableClient()}
 	if err != nil {
 		return game, fmt.Errorf("failed to marshal settings to json: %w", err)
 	}
 	r := bytes.NewReader(requestBody)
-	res, err := c.Post(serverApi+"/game", "application/json", r)
+	res, err := game.client.Post(serverApi+"/game", "application/json", r)
 	if err != nil {
 		return game, fmt.Errorf("failed to send POST request: %w", err)
 	}
@@ -159,6 +168,39 @@ func (g GameClient) PlayerDescriptions() (DescriptionResponse, error) {
 		return descriptionRes, fmt.Errorf("response error: %s", descriptionRes.Message)
 	}
 	return descriptionRes, nil
+}
+
+func Lobby() ([]LobbyGame, error) {
+	c := newRetryableClient()
+	res, err := c.Get(serverApi + "/lobby")
+	if err != nil {
+		return nil, fmt.Errorf("failed to send Lobby GET request: %w", err)
+	}
+	games, err := unmarshalFromReadCloser[[]LobbyGame](&res.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal Lobby GET response: %w", err)
+	}
+	return games, nil
+}
+
+func (g GameClient) Refresh() error {
+	res, err := g.sendRequest(http.MethodGet, "/game/refresh", nil)
+	if err != nil {
+		return fmt.Errorf("failed to send Refresh GET request: %w", err)
+	}
+
+	if res.StatusCode == 200 {
+		return nil
+	}
+	body, err := unmarshalFromReadCloser[map[string]string](&res.Body)
+	if err != nil {
+		return fmt.Errorf("failed to umarshal Refresh response: %w", err)
+	}
+	mes, ok := body["message"]
+	if !ok {
+		mes = res.Status
+	}
+	return fmt.Errorf("response error: %s", mes)
 }
 
 func (g GameClient) sendRequest(method string, path string, body io.Reader) (*http.Response, error) {
