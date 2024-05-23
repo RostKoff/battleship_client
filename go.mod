@@ -3,7 +3,7 @@ module battleship_client
 go 1.22.1
 
 require (
-	github.com/RostKoff/warships-gui/v2 v2.0.0-20240521141426-4d6698effd4b
+	github.com/RostKoff/warships-gui/v2 v2.0.0-20240523120312-62b5adb3b26c
 	github.com/hashicorp/go-retryablehttp v0.7.6
 )
 

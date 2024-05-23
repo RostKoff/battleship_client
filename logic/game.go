@@ -11,6 +11,8 @@ import (
 )
 
 func DisplayGameSettings(gui *wGui.GUI, ch chan<- client.GameSettings) {
+	refresh := make(chan rune)
+
 	gui.NewScreen("settings")
 	gui.SetScreen("settings")
 
@@ -39,11 +41,16 @@ func DisplayGameSettings(gui *wGui.GUI, ch chan<- client.GameSettings) {
 	w, _ := startBtn.Size()
 	btnCfg.BgColor = wGui.Blue
 	botBtn := wGui.NewButton(x+w+2, 11, "Against Bot", btnCfg)
+	x, _ = botBtn.Position()
+	w, _ = botBtn.Size()
+	btnCfg.BgColor = wGui.Grey
+	refreshBtn := wGui.NewButton(x+w+2, 11, "Refresh", btnCfg)
 
 	// Handle Area for buttons
 	btnMapping := map[string]wGui.Physical{
-		"botBtn":   botBtn,
-		"startBtn": startBtn,
+		"botBtn":     botBtn,
+		"startBtn":   startBtn,
+		"refreshBtn": refreshBtn,
 	}
 	btnArea := wGui.NewHandleArea(btnMapping)
 
@@ -52,39 +59,40 @@ func DisplayGameSettings(gui *wGui.GUI, ch chan<- client.GameSettings) {
 	lCfg.Width = 42
 
 	lobbyTxt := wGui.NewButton(2, 15, "Lobby", lCfg)
-	lobbyGames, err := client.Lobby()
-	if err != nil {
-		return
-	}
 	lCfg.Width = 21
 	statusHead := wGui.NewButton(2, 18, "Status", lCfg)
 	nickHead := wGui.NewButton(lCfg.Width+2, 18, "Nick", lCfg)
 
 	drawables := []wGui.Drawable{
-		nameTxt, nameIn, descTxt, descIn, btnArea, botBtn, startBtn, lobbyTxt, statusHead, nickHead,
-	}
-
-	lobbyMap := make(map[string]cli.Row, 0)
-	for i, game := range lobbyGames {
-		y := 18 + (i+1)*3
-		btns := []*wGui.Button{
-			wGui.NewButton(2, y, game.Status, lCfg),
-			wGui.NewButton(lCfg.Width+2, y, game.Nick, lCfg),
-		}
-
-		row := cli.NewRow(btns)
-		lobbyMap[game.Nick] = row
-		drawables = append(drawables, btns[0], btns[1])
+		nameTxt, nameIn, descTxt, descIn, btnArea, botBtn, startBtn, lobbyTxt, statusHead, nickHead, refreshBtn,
 	}
 
 	areaMap := make(map[string]wGui.Physical)
-	for key, value := range lobbyMap {
-		areaMap[key] = value
-	}
 	lobbyArea := wGui.NewHandleArea(areaMap)
+	lobbyMap := make(map[string]cli.Row)
+	go func() {
+		for {
+			lobbyMap = getLobbyGames()
+			for key, value := range lobbyMap {
+				areaMap[key] = value
+				btns := value.GetButtons()
+				gui.Draw(btns[0])
+				gui.Draw(btns[1])
+			}
+			lobbyArea.SetClickablesOn(areaMap)
+			gui.Draw(lobbyArea)
+			<-refresh
+			gui.Remove(lobbyArea)
+			for key, value := range lobbyMap {
+				btns := value.GetButtons()
+				gui.Remove(btns[0])
+				gui.Remove(btns[1])
+				delete(areaMap, key)
+			}
+		}
+	}()
 
 	// Draw objects
-	drawables = append(drawables, lobbyArea)
 	for _, drawable := range drawables {
 		gui.Draw(drawable)
 	}
@@ -137,8 +145,35 @@ func DisplayGameSettings(gui *wGui.GUI, ch chan<- client.GameSettings) {
 				Description: descIn.GetText(),
 				TargetNick:  targetNick,
 			}
+		case "refreshBtn":
+			targetNick = ""
+			startBtn.SetBgColor(wGui.Green)
+			startBtn.SetText("Host Game")
+			targetRow = nil
+			refresh <- 'r'
 		}
 	}
+}
+
+func getLobbyGames() map[string]cli.Row {
+	lobbyGames, err := client.Lobby()
+	lCfg := wGui.NewButtonConfig()
+	lCfg.Width = 21
+	if err != nil {
+		return nil
+	}
+	lobbyMap := make(map[string]cli.Row, 0)
+	for i, game := range lobbyGames {
+		y := 18 + (i+1)*3
+		btns := []*wGui.Button{
+			wGui.NewButton(2, y, game.Status, lCfg),
+			wGui.NewButton(lCfg.Width+2, y, game.Nick, lCfg),
+		}
+
+		row := cli.NewRow(btns)
+		lobbyMap[game.Nick] = row
+	}
+	return lobbyMap
 }
 
 func StartGame(controller *wGui.GUI, gs client.GameSettings) error {

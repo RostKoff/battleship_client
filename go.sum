@@ -4,6 +4,10 @@ github.com/RostKoff/warships-gui/v2 v2.0.0-20240521133303-892f23771532 h1:KueK0U
 github.com/RostKoff/warships-gui/v2 v2.0.0-20240521133303-892f23771532/go.mod h1:083ZeZrIVdN8Sdq+wLamkVM0v1/2NKs7z8bqoKfIW40=
 github.com/RostKoff/warships-gui/v2 v2.0.0-20240521141426-4d6698effd4b h1:PmBrFZvG/A7+GCmdl/Yd7CFvCJrV2VUOWSg0J86Y6fk=
 github.com/RostKoff/warships-gui/v2 v2.0.0-20240521141426-4d6698effd4b/go.mod h1:083ZeZrIVdN8Sdq+wLamkVM0v1/2NKs7z8bqoKfIW40=
+github.com/RostKoff/warships-gui/v2 v2.0.0-20240523111217-1d09a3b10975 h1:sfXnB65roXiXFR3EAtjERTVWBwv8yiizEvlCj5kq9rA=
+github.com/RostKoff/warships-gui/v2 v2.0.0-20240523111217-1d09a3b10975/go.mod h1:083ZeZrIVdN8Sdq+wLamkVM0v1/2NKs7z8bqoKfIW40=
+github.com/RostKoff/warships-gui/v2 v2.0.0-20240523120312-62b5adb3b26c h1:7vf9+isij6ggY67W+0VXBQ5vAwRmNiyzSzCgvjwGc/s=
+github.com/RostKoff/warships-gui/v2 v2.0.0-20240523120312-62b5adb3b26c/go.mod h1:083ZeZrIVdN8Sdq+wLamkVM0v1/2NKs7z8bqoKfIW40=
 github.com/fatih/color v1.16.0 h1:zmkK9Ngbjj+K0yRhTVONQh1p/HknKYSlNT+vZCzyokM=
 github.com/fatih/color v1.16.0/go.mod h1:fL2Sau1YI5c0pdGEVCbKQbLXB6edEj1ZgiY4NijnWvE=
 github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
