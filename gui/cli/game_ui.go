@@ -37,8 +37,8 @@ func InitGameUI(controller *gui.GUI) *GameUI {
 		ui.PBoard.Board,
 		ui.PBoard.Nick,
 		ui.PBoard.Desc,
-		ui.OppBoard.Nick,
 		ui.OppBoard.Board,
+		ui.OppBoard.Nick,
 		ui.OppBoard.Desc,
 		ui.EndText,
 		ui.TurnText,
@@ -147,7 +147,7 @@ func (ui *GameUI) DrawNicks(pNick string, oppNick string) {
 
 func (ui *GameUI) DrawDescriptions(pDesc string, oppDesc string) {
 	ui.PBoard.Desc.SetText(pDesc)
-	ui.OppBoard.Nick.SetText(oppDesc)
+	ui.OppBoard.Desc.SetText(oppDesc)
 }
 
 // Listens for clicks on the opponent's board in a loop. Returns the coordinate of the clicked tile if it is empty.

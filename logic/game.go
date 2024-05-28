@@ -100,7 +100,7 @@ func waitUntilStart(apiClient client.GameClient, controller *wGui.GUI) (statusRe
 			}
 			refreshCount = 0
 		}
-		statusRes, err := apiClient.Status()
+		statusRes, err = apiClient.Status()
 		if err != nil {
 			return statusRes, fmt.Errorf("failed to get game status: %w", err)
 		}
@@ -124,7 +124,6 @@ func displayGame(apiClient client.GameClient, controller *wGui.GUI, statusRes cl
 	for _, coord := range board {
 		gameUi.PBoard.UpdateState(coord, wGui.Ship)
 	}
-
 	gameUi.DrawNicks(statusRes.Nick, statusRes.Opponent)
 
 	var pDesc, oppDesc string

@@ -17,8 +17,8 @@ type GameBoard struct {
 func InitGameBoard(x int, y int, cfg *gui.BoardConfig) *GameBoard {
 	b := GameBoard{}
 	b.Board = gui.NewBoard(x, y, cfg)
-	b.Nick = gui.NewText(x, y+22, "", nil)
-	b.Desc = gui.NewTextField(x, y+3, 42, 15, nil)
+	b.Nick = gui.NewText(x, y+22, "abobas", nil)
+	b.Desc = gui.NewTextField(x, y+23, 42, 15, nil)
 	b.Board.SetStates(b.states)
 	return &b
 }
