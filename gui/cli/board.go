@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"context"
 	"fmt"
 	"strconv"
 
@@ -9,20 +8,17 @@ import (
 )
 
 type GameBoard struct {
-	xCoord int
-	yCoord int
 	Nick   *gui.Text
-	Desc   []*gui.Text
+	Desc   *gui.TextField
 	Board  *gui.Board
 	states [10][10]gui.State
 }
 
 func InitGameBoard(x int, y int, cfg *gui.BoardConfig) *GameBoard {
 	b := GameBoard{}
-	b.xCoord = x
-	b.yCoord = y
 	b.Board = gui.NewBoard(x, y, cfg)
 	b.Nick = gui.NewText(x, y+22, "", nil)
+	b.Desc = gui.NewTextField(x, y+3, 42, 15, nil)
 	b.Board.SetStates(b.states)
 	return &b
 }
@@ -47,20 +43,6 @@ func (b *GameBoard) UpdateStateWithDigitCoords(letterCoord int, numCoord int, st
 	b.states[letterCoord][numCoord] = state
 	b.Board.SetStates(b.states)
 	return nil
-}
-
-// ! Function to consider
-func (b *GameBoard) ListenForShot() string {
-	coords := ""
-	for {
-		coords = b.Board.Listen(context.Background())
-		c, _ := ConvertCoords(coords)
-		state := b.states[c[0]][c[1]]
-		if state == gui.Empty || state == "" {
-			break
-		}
-	}
-	return coords
 }
 
 func ConvertCoords(coords string) ([2]int, error) {

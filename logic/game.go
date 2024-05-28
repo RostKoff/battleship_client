@@ -10,280 +10,40 @@ import (
 	wGui "github.com/RostKoff/warships-gui/v2"
 )
 
-func DisplayGameSettings(gui *wGui.GUI, ch chan<- client.GameSettings) {
-	refresh := make(chan rune)
-
-	gui.NewScreen("settings")
-	gui.SetScreen("settings")
-
-	// Name Input
-	nameTxt := wGui.NewText(2, 1, "Enter name", nil)
-	nameInCfg := wGui.NewTextFieldConfig()
-	nameInCfg.UnfilledChar = '_'
-	nameInCfg.InputOn = true
-	nameIn := wGui.NewTextField(2, 2, 30, 1, nameInCfg)
-
-	// Description Input
-	descTxt := wGui.NewText(2, 4, "Enter Description", nil)
-	descInCfg := wGui.NewTextFieldConfig()
-	descInCfg.UnfilledChar = '.'
-	descInCfg.InputOn = true
-	descIn := wGui.NewTextField(2, 5, 30, 5, descInCfg)
-
-	// Action Buttons
-	btnCfg := wGui.NewButtonConfig()
-	btnCfg.Width = 0
-	btnCfg.Height = 0
-	btnCfg.Width = 20
-	btnCfg.BgColor = wGui.Green
-	startBtn := wGui.NewButton(2, 11, "Host Game", btnCfg)
-	x, _ := startBtn.Position()
-	w, _ := startBtn.Size()
-	btnCfg.BgColor = wGui.Blue
-	botBtn := wGui.NewButton(x+w+2, 11, "Against Bot", btnCfg)
-	x, _ = botBtn.Position()
-	w, _ = botBtn.Size()
-	btnCfg.BgColor = wGui.Grey
-	refreshBtn := wGui.NewButton(x+w+2, 11, "Refresh", btnCfg)
-
-	// Handle Area for buttons
-	btnMapping := map[string]wGui.Physical{
-		"botBtn":     botBtn,
-		"startBtn":   startBtn,
-		"refreshBtn": refreshBtn,
-	}
-	btnArea := wGui.NewHandleArea(btnMapping)
-
-	// Lobby
-	lCfg := wGui.NewButtonConfig()
-	lCfg.Width = 42
-
-	lobbyTxt := wGui.NewButton(2, 15, "Lobby", lCfg)
-	lCfg.Width = 21
-	statusHead := wGui.NewButton(2, 18, "Status", lCfg)
-	nickHead := wGui.NewButton(lCfg.Width+2, 18, "Nick", lCfg)
-
-	drawables := []wGui.Drawable{
-		nameTxt, nameIn, descTxt, descIn, btnArea, botBtn, startBtn, lobbyTxt, statusHead, nickHead, refreshBtn,
-	}
-
-	areaMap := make(map[string]wGui.Physical)
-	lobbyArea := wGui.NewHandleArea(areaMap)
-	lobbyMap := make(map[string]cli.Row)
-	go func() {
-		for {
-			lobbyMap = getLobbyGames()
-			for key, value := range lobbyMap {
-				areaMap[key] = value
-				btns := value.GetButtons()
-				gui.Draw(btns[0])
-				gui.Draw(btns[1])
-			}
-			lobbyArea.SetClickablesOn(areaMap)
-			gui.Draw(lobbyArea)
-			<-refresh
-			gui.Remove(lobbyArea)
-			for key, value := range lobbyMap {
-				btns := value.GetButtons()
-				gui.Remove(btns[0])
-				gui.Remove(btns[1])
-				delete(areaMap, key)
-			}
-		}
-	}()
-
-	// Draw objects
-	for _, drawable := range drawables {
-		gui.Draw(drawable)
-	}
-
-	ctx := context.Background()
-	targetNick := ""
-	targetRow := new(cli.Row)
-	go func() {
-		for {
-			clickedNick := lobbyArea.Listen(ctx)
-			row, ok := lobbyMap[clickedNick]
-			if !ok {
-				continue
-			}
-			if targetNick == clickedNick {
-				row.SetBgColor(wGui.Black)
-				row.SetFgColor(wGui.White)
-				targetNick = ""
-				startBtn.SetBgColor(wGui.Green)
-				startBtn.SetText("Host Game")
-				targetRow = nil
-				continue
-			}
-			row.SetBgColor(wGui.White)
-			row.SetFgColor(wGui.Black)
-			targetNick = clickedNick
-			startBtn.SetBgColor(wGui.Red)
-			startBtn.SetText("Fight Opponent")
-			if targetRow != nil {
-				targetRow.SetBgColor(wGui.Black)
-				targetRow.SetFgColor(wGui.White)
-			}
-			targetRow = &row
-		}
-	}()
-
-	for {
-		clicked := btnArea.Listen(ctx)
-		switch clicked {
-		case "botBtn":
-			ch <- client.GameSettings{
-				AgainstBot:  true,
-				Nick:        nameIn.GetText(),
-				Description: descIn.GetText(),
-			}
-		case "startBtn":
-			ch <- client.GameSettings{
-				AgainstBot:  false,
-				Nick:        nameIn.GetText(),
-				Description: descIn.GetText(),
-				TargetNick:  targetNick,
-			}
-		case "refreshBtn":
-			targetNick = ""
-			startBtn.SetBgColor(wGui.Green)
-			startBtn.SetText("Host Game")
-			targetRow = nil
-			refresh <- 'r'
-		}
-	}
-}
-
-func getLobbyGames() map[string]cli.Row {
-	lobbyGames, err := client.Lobby()
-	lCfg := wGui.NewButtonConfig()
-	lCfg.Width = 21
-	if err != nil {
-		return nil
-	}
-	lobbyMap := make(map[string]cli.Row, 0)
-	for i, game := range lobbyGames {
-		y := 18 + (i+1)*3
-		btns := []*wGui.Button{
-			wGui.NewButton(2, y, game.Status, lCfg),
-			wGui.NewButton(lCfg.Width+2, y, game.Nick, lCfg),
-		}
-
-		row := cli.NewRow(btns)
-		lobbyMap[game.Nick] = row
-	}
-	return lobbyMap
-}
-
 func StartGame(controller *wGui.GUI, gs client.GameSettings) error {
 	controller.NewScreen("game")
 	controller.SetScreen("game")
-	waitTxt := wGui.NewText(1, 1, "Waiting for game to start...", nil)
-	controller.Draw(waitTxt)
 
-	statusRes := client.StatusResponse{}
 	apiClient, err := client.InitGame(gs)
 	if err != nil {
 		return fmt.Errorf("failed to initialise the game, %w", err)
 	}
 
-	// The channel will send messages to the goroutine responsible for displaying errors.
-	errMsgChan := make(chan string)
-
-	// Requesting the API for the status of the game until it is started.
-	for refreshCount := 0; ; refreshCount++ {
-		if refreshCount == 10 {
-			err := apiClient.Refresh()
-			if err != nil {
-				return fmt.Errorf("failed to refresh game session: %w", err)
-			}
-			refreshCount = 0
-		}
-		statusRes, err = apiClient.Status()
-		if err != nil {
-			return fmt.Errorf("failed to get game status: %w", err)
-		}
-		if statusRes.Status != "game_in_progress" {
-			time.Sleep(time.Second)
-			continue
-		}
-		break
-	}
-
-	board, err := apiClient.Board()
+	statusRes, err := waitUntilStart(apiClient, controller)
 	if err != nil {
-		return fmt.Errorf("failed to get player board: %w", err)
+		return fmt.Errorf("fail occured while waiting for start: %w", err)
 	}
-	controller.Remove(waitTxt)
-	gameUi := cli.InitGameUI(controller)
-	// Fill the board with ships
-	for _, coord := range board {
-		gameUi.PBoard.UpdateState(coord, wGui.Ship)
-	}
-	gameUi.DrawNicks(statusRes.Nick, statusRes.Opponent)
-
-	var pDesc, oppDesc string
-	descs, err := apiClient.PlayerDescriptions()
+	gameUi, err := displayGame(apiClient, controller, statusRes)
 	if err != nil {
-		gameUi.Controller.Log("Player Descriptions Error: %s", err)
-		pDesc = "n/a"
-		oppDesc = "n/a"
-	} else {
-		pDesc = descs.PlayerDescription
-		oppDesc = descs.OpponentDescription
+		return fmt.Errorf("failed to display the game: %w", err)
 	}
-	gameUi.PlaceAndDrawDescriptions(pDesc, oppDesc)
 
 	// Context to cancel additional goroutines after game is finished.
 	mainEnd, cancel := context.WithCancel(context.Background())
 	// Goroutine that is responsible for updating GUI according to the game status got from API.
 	defer cancel()
 
-	go func(ctx context.Context) {
-	mainLoop:
-		for {
-			select {
-			case <-ctx.Done():
-				break mainLoop
-			default:
-				coord := gameUi.OppBoard.ListenForShot()
-				fireRes, err := apiClient.Fire(coord)
-				if err != nil {
-					errMsgChan <- "Failed to fire!"
-					gameUi.Controller.Log(fmt.Sprintf("Fire error: %s", err.Error()))
-					continue
-				}
-				err = gameUi.HandlePShot(fireRes, coord)
-				if err != nil {
-					errMsgChan <- "Failed to handle player shot"
-					gameUi.Controller.Log(fmt.Sprintf("Player shot error: %s", err.Error()))
-					continue
-				}
-			}
-		}
-	}(mainEnd)
+	// The channel will send messages to the goroutine responsible for displaying errors.
+	errMsgChan := make(chan string)
 
-	// Displays and error message for 3 seconds and then hides it.
-	go func(ctx context.Context) {
-		// Initilise the timer.
-		errTimer := time.NewTimer(time.Second * 10)
-		errTimer.Stop()
-	mainLoop:
-		for {
-			select {
-			case <-ctx.Done():
-				break mainLoop
-			case errMsg := <-errMsgChan:
-				gameUi.ErrorText.SetText(errMsg)
-				errTimer.Stop()
-				errTimer.Reset(time.Second * 3)
-			case <-errTimer.C:
-				gameUi.ErrorText.SetText("")
-			}
-		}
-	}(mainEnd)
+	go errorDisplayer(mainEnd, gameUi, errMsgChan)
 
+	go handleShot(mainEnd, gameUi, apiClient, errMsgChan)
+
+	board, err := apiClient.Board()
+	if err != nil {
+		return fmt.Errorf("failed to get player's ship location: %w", err)
+	}
 	oppShotCount := 0
 	// Main game loop. Gets the game status every second and updates the GUI accordingly
 	for {
@@ -322,4 +82,110 @@ func StartGame(controller *wGui.GUI, gs client.GameSettings) error {
 	gameUi.EndText.SetText("You won!\n")
 	// Goroutine responsible for getting player input and handling fire mechanic.
 	return err
+}
+
+// Fetches the status from the API every second until the game starts, and refreshes the game session every 10 seconds.
+// Returns the status of the started game.
+func waitUntilStart(apiClient client.GameClient, controller *wGui.GUI) (statusRes client.StatusResponse, err error) {
+	waitTxt := wGui.NewText(1, 1, "Waiting for game to start...", nil)
+	controller.Draw(waitTxt)
+
+	// Requesting the API for the status of the game until it is started.
+	// Refresh count is used to refresh game session every 10 seconds.
+	for refreshCount := 0; ; refreshCount++ {
+		if refreshCount == 10 {
+			err = apiClient.Refresh()
+			if err != nil {
+				return statusRes, fmt.Errorf("failed to refresh game session: %w", err)
+			}
+			refreshCount = 0
+		}
+		statusRes, err := apiClient.Status()
+		if err != nil {
+			return statusRes, fmt.Errorf("failed to get game status: %w", err)
+		}
+		if statusRes.Status != "game_in_progress" {
+			time.Sleep(time.Second)
+			continue
+		}
+		break
+	}
+	controller.Remove(waitTxt)
+	return statusRes, nil
+}
+
+func displayGame(apiClient client.GameClient, controller *wGui.GUI, statusRes client.StatusResponse) (gameUi *cli.GameUI, err error) {
+	board, err := apiClient.Board()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get player's ship location: %w", err)
+	}
+	gameUi = cli.InitGameUI(controller)
+	// Fill the board with ships
+	for _, coord := range board {
+		gameUi.PBoard.UpdateState(coord, wGui.Ship)
+	}
+
+	gameUi.DrawNicks(statusRes.Nick, statusRes.Opponent)
+
+	var pDesc, oppDesc string
+	descs, err := apiClient.PlayerDescriptions()
+	if err != nil {
+		gameUi.Controller.Log("Player Descriptions Error: %s", err)
+		pDesc = "n/a"
+		oppDesc = "n/a"
+	} else {
+		pDesc = descs.PlayerDescription
+		oppDesc = descs.OpponentDescription
+	}
+	gameUi.DrawDescriptions(pDesc, oppDesc)
+	return
+}
+
+// Responsible for logic related to the shot. The context is used to end the function when the game is over.
+func handleShot(ctx context.Context, gameUi *cli.GameUI, client client.GameClient, errChan chan<- string) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			coord, err := gameUi.ListenForShot(ctx)
+			if err != nil {
+				errChan <- "Failed to handle click!"
+				gameUi.Controller.Log(fmt.Sprintf("Listen Error: %s", err.Error()))
+			}
+			fireRes, err := client.Fire(coord)
+			if err != nil {
+				errChan <- "Failed to fire!"
+				gameUi.Controller.Log(fmt.Sprintf("Fire error: %s", err.Error()))
+				continue
+			}
+			err = gameUi.HandlePShot(fireRes, coord)
+			if err != nil {
+				errChan <- "Failed to handle player shot"
+				gameUi.Controller.Log(fmt.Sprintf("Player shot error: %s", err.Error()))
+				continue
+			}
+		}
+	}
+}
+
+// Displays an error message received from the `errChan` for 3 seconds and then hides it.
+func errorDisplayer(ctx context.Context, gameUi *cli.GameUI, errChan <-chan string) {
+	// Initilise the timer.
+	errTimer := time.NewTimer(time.Second * 10)
+	errTimer.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case errMsg := <-errChan:
+			// Displays new message and resets the timer.
+			gameUi.ErrorText.SetText(errMsg)
+			errTimer.Stop()
+			errTimer.Reset(time.Second * 3)
+		case <-errTimer.C:
+			// Hides the message when the timer expires.
+			gameUi.ErrorText.SetText("")
+		}
+	}
 }

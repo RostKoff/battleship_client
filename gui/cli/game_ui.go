@@ -1,21 +1,22 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"slices"
-	"strings"
 
 	gui "github.com/RostKoff/warships-gui/v2"
 )
 
 type GameUI struct {
-	Controller *gui.GUI
-	PBoard     *GameBoard
-	OppBoard   *GameBoard
-	EndText    *gui.Text
-	TurnText   *gui.Text
-	ErrorText  *gui.Text
-	Timer      *gui.Text
+	Controller    *gui.GUI
+	PBoard        *GameBoard
+	OppBoard      *GameBoard
+	EndText       *gui.Text
+	TurnText      *gui.Text
+	ErrorText     *gui.Text
+	Timer         *gui.Text
+	AbandonButton *gui.Button
 }
 
 func InitGameUI(controller *gui.GUI) *GameUI {
@@ -35,9 +36,10 @@ func InitGameUI(controller *gui.GUI) *GameUI {
 	drawables := []gui.Drawable{
 		ui.PBoard.Board,
 		ui.PBoard.Nick,
+		ui.PBoard.Desc,
 		ui.OppBoard.Nick,
 		ui.OppBoard.Board,
-		ui.PBoard.Nick,
+		ui.OppBoard.Desc,
 		ui.EndText,
 		ui.TurnText,
 		ui.Timer,
@@ -143,56 +145,30 @@ func (ui *GameUI) DrawNicks(pNick string, oppNick string) {
 	ui.OppBoard.Nick.SetText(oppNick)
 }
 
-func (ui *GameUI) PlaceAndDrawDescriptions(pDesc string, oppDesc string) {
-	pDescText := SplitLongText(ui.PBoard.xCoord, ui.PBoard.yCoord, 42, pDesc)
-	oppDescText := SplitLongText(ui.OppBoard.xCoord, ui.OppBoard.yCoord, 42, oppDesc)
-	drawables := slices.Concat(pDescText, oppDescText)
-	for _, drawable := range drawables {
-		ui.Controller.Draw(drawable)
-	}
+func (ui *GameUI) DrawDescriptions(pDesc string, oppDesc string) {
+	ui.PBoard.Desc.SetText(pDesc)
+	ui.OppBoard.Nick.SetText(oppDesc)
 }
 
-func SplitLongText(xCoord, yCoord, charsOnLine int, text string) []*gui.Text {
-	words := strings.Split(text, " ")
-	textBlobs := make([]*gui.Text, 0)
-	currentLineChars := -1
-	lineCoord := 23 + yCoord
-	prevChar := 0
-	for n, word := range words {
-		wordLen := len(word)
-		currentLineChars = currentLineChars + wordLen + 1
-		if currentLineChars > charsOnLine && n != prevChar {
-			textLine := strings.Join(words[prevChar:n], " ")
-			textBlobs = append(textBlobs, gui.NewText(xCoord, lineCoord, textLine, nil))
-			prevChar = n
-			lineCoord++
-			currentLineChars = -1
+// Listens for clicks on the opponent's board in a loop. Returns the coordinate of the clicked tile if it is empty.
+func (ui *GameUI) ListenForShot(ctx context.Context) (string, error) {
+	coords := ""
+	// Loop until empty tile is clicked or context is done.
+	for {
+		coords = ui.OppBoard.Board.Listen(ctx)
+		// Break if context is done.
+		if coords == "" {
+			break
 		}
-		if wordLen > charsOnLine {
-			splittedWord := splitWord(charsOnLine, word)
-			for _, wordPart := range splittedWord {
-				textBlobs = append(textBlobs, gui.NewText(xCoord, lineCoord, wordPart, nil))
-				lineCoord++
-			}
-			prevChar = n + 1
-			currentLineChars = -1
+		// Check if empty tile is clicked.
+		c, err := ConvertCoords(coords)
+		if err != nil {
+			return "", fmt.Errorf("failed to convert coords: %w", err)
+		}
+		state := ui.OppBoard.states[c[0]][c[1]]
+		if state == "" {
+			break
 		}
 	}
-	textLine := strings.Join(words[prevChar:], " ")
-	textBlobs = append(textBlobs, gui.NewText(xCoord, lineCoord, textLine, nil))
-	return textBlobs
-}
-
-func splitWord(charsOnLine int, word string) []string {
-	wordLen := len(word)
-	splitGap := charsOnLine - 1
-	splittedParts := make([]string, 0)
-	for i := 0; i < wordLen; i += splitGap {
-		if lastIndex := i + splitGap; lastIndex <= wordLen {
-			splittedParts = append(splittedParts, word[i:lastIndex]+"-")
-		} else {
-			splittedParts = append(splittedParts, word[i:])
-		}
-	}
-	return splittedParts
+	return coords, nil
 }
