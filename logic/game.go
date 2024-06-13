@@ -10,7 +10,7 @@ import (
 	wGui "github.com/RostKoff/warships-gui/v2"
 )
 
-func StartGame(controller *wGui.GUI, gs client.GameSettings) error {
+func StartGame(controller *wGui.GUI, gs client.GameSettings, abandon chan<- rune) error {
 	controller.NewScreen("game")
 	controller.SetScreen("game")
 
@@ -35,6 +35,8 @@ func StartGame(controller *wGui.GUI, gs client.GameSettings) error {
 
 	// The channel will send messages to the goroutine responsible for displaying errors.
 	errMsgChan := make(chan string)
+
+	go btnListen(mainEnd, gameUi, apiClient, abandon)
 
 	go errorDisplayer(mainEnd, gameUi, errMsgChan)
 
@@ -164,6 +166,7 @@ func handleShot(ctx context.Context, gameUi *cli.GameUI, client client.GameClien
 				gameUi.Controller.Log(fmt.Sprintf("Player shot error: %s", err.Error()))
 				continue
 			}
+			gameUi.CalculateAccuracy()
 		}
 	}
 }
@@ -185,6 +188,23 @@ func errorDisplayer(ctx context.Context, gameUi *cli.GameUI, errChan <-chan stri
 		case <-errTimer.C:
 			// Hides the message when the timer expires.
 			gameUi.ErrorText.SetText("")
+		}
+	}
+}
+
+func btnListen(ctx context.Context, gameUi *cli.GameUI, client client.GameClient, abandon chan<- rune) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			opt := gameUi.BtnListen(ctx)
+			switch opt {
+			case cli.AbandonOpt:
+				client.Abandon()
+				abandon <- ' '
+				return
+			}
 		}
 	}
 }

@@ -47,6 +47,9 @@ func (b *GameBoard) UpdateStateWithDigitCoords(letterCoord int, numCoord int, st
 
 func ConvertCoords(coords string) ([2]int, error) {
 	values := [2]int{}
+	if length := len(coords); length < 2 || length > 3 {
+		return values, fmt.Errorf("bad format")
+	}
 	letterCoord := int(coords[0]) - 65
 	if letterCoord < 0 || letterCoord > 9 {
 		return values, fmt.Errorf("letter coord is out of bounce")
@@ -62,4 +65,16 @@ func ConvertCoords(coords string) ([2]int, error) {
 	values[0] = letterCoord
 	values[1] = numCoord
 	return values, nil
+}
+
+func ConvertToString(lCoord, nCoord int) (string, error) {
+	if lCoord < 0 || lCoord > 9 {
+		return "", fmt.Errorf("letter coord is out of bounce")
+	}
+	if nCoord < 0 || nCoord > 9 {
+		return "", fmt.Errorf("number coord is out of bounce")
+	}
+	lCoord += 65
+	nCoord++
+	return fmt.Sprintf("%c%d", lCoord, nCoord), nil
 }

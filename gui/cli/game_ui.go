@@ -8,26 +8,41 @@ import (
 	gui "github.com/RostKoff/warships-gui/v2"
 )
 
+const (
+	AbandonOpt = "abandon"
+)
+
 type GameUI struct {
-	Controller    *gui.GUI
-	PBoard        *GameBoard
-	OppBoard      *GameBoard
-	EndText       *gui.Text
-	TurnText      *gui.Text
-	ErrorText     *gui.Text
-	Timer         *gui.Text
-	AbandonButton *gui.Button
+	Controller   *gui.GUI
+	PBoard       *GameBoard
+	OppBoard     *GameBoard
+	EndText      *gui.Text
+	TurnText     *gui.Text
+	ErrorText    *gui.Text
+	Timer        *gui.Text
+	abandonBtn   *gui.Button
+	abandonArea  *gui.HandleArea
+	accuracyText *gui.Text
+	hit          float64
+	miss         float64
 }
 
 func InitGameUI(controller *gui.GUI) *GameUI {
+	abandonCfg := gui.NewButtonConfig()
+	abandonCfg.BgColor = gui.Red
+	abandonBtn := gui.NewButton(79, 1, "Abandon game", abandonCfg)
+	abandonArea := gui.NewHandleArea(map[string]gui.Physical{AbandonOpt: abandonBtn})
 	ui := GameUI{
-		Controller: controller,
-		PBoard:     InitGameBoard(1, 5, nil),
-		OppBoard:   InitGameBoard(50, 5, nil),
-		EndText:    gui.NewText(50, 1, "", nil),
-		TurnText:   gui.NewText(1, 1, "", nil),
-		Timer:      gui.NewText(1, 3, "", nil),
-		ErrorText:  gui.NewText(50, 3, "", nil),
+		Controller:   controller,
+		PBoard:       InitGameBoard(1, 5, nil),
+		OppBoard:     InitGameBoard(50, 5, nil),
+		accuracyText: gui.NewText(20, 1, "", nil),
+		EndText:      gui.NewText(50, 1, "", nil),
+		TurnText:     gui.NewText(1, 1, "", nil),
+		Timer:        gui.NewText(1, 3, "", nil),
+		ErrorText:    gui.NewText(50, 3, "", nil),
+		abandonBtn:   abandonBtn,
+		abandonArea:  abandonArea,
 	}
 
 	ui.ErrorText.SetBgColor(gui.Red)
@@ -44,6 +59,9 @@ func InitGameUI(controller *gui.GUI) *GameUI {
 		ui.TurnText,
 		ui.Timer,
 		ui.ErrorText,
+		ui.abandonArea,
+		ui.abandonBtn,
+		ui.accuracyText,
 	}
 	for _, drawable := range drawables {
 		ui.Controller.Draw(drawable)
@@ -79,11 +97,13 @@ func (ui *GameUI) HandlePShot(fireResponse string, coord string) error {
 		if err != nil {
 			return fmt.Errorf("failed to update board state: %w", err)
 		}
+		ui.hit++
 	case "miss":
 		err := ui.OppBoard.UpdateState(coord, gui.Miss)
 		if err != nil {
 			return fmt.Errorf("failed to update board state: %w", err)
 		}
+		ui.miss++
 	case "sunk":
 		c, err := ConvertCoords(coord)
 		if err != nil {
@@ -171,4 +191,12 @@ func (ui *GameUI) ListenForShot(ctx context.Context) (string, error) {
 		}
 	}
 	return coords, nil
+}
+
+func (ui *GameUI) BtnListen(ctx context.Context) string {
+	return ui.abandonArea.Listen(ctx)
+}
+
+func (ui *GameUI) CalculateAccuracy() {
+	ui.accuracyText.SetText(fmt.Sprintf("Accuracy: %.2f", (ui.hit/(ui.miss+ui.hit))*100))
 }

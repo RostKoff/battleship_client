@@ -203,6 +203,26 @@ func (g GameClient) Refresh() error {
 	return fmt.Errorf("response error: %s", mes)
 }
 
+func (g GameClient) Abandon() error {
+	res, err := g.sendRequest(http.MethodDelete, "/game/abandon", nil)
+	if err != nil {
+		return fmt.Errorf("failed to send Abandon DELETE request: %w", err)
+	}
+
+	if res.StatusCode == 200 {
+		return nil
+	}
+	body, err := unmarshalFromReadCloser[map[string]string](&res.Body)
+	if err != nil {
+		return fmt.Errorf("failed to umarshal Refresh response: %w", err)
+	}
+	mes, ok := body["message"]
+	if !ok {
+		mes = res.Status
+	}
+	return fmt.Errorf("response error: %s", mes)
+}
+
 func (g GameClient) sendRequest(method string, path string, body io.Reader) (*http.Response, error) {
 	req, err := retryablehttp.NewRequest(method, fmt.Sprintf("%s%s", serverApi, path), body)
 	if err != nil {

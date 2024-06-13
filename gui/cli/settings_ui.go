@@ -22,13 +22,14 @@ type SettingsUI struct {
 }
 
 // Creates and draws all the elements of the lobby.
-func InitSettings(controller *wGui.GUI) *SettingsUI {
+func InitSettings(controller *wGui.GUI, settings *client.GameSettings) *SettingsUI {
 	// Name Input
 	nameTxt := wGui.NewText(2, 1, "Enter name", nil)
 	nameInCfg := wGui.NewTextFieldConfig()
 	nameInCfg.UnfilledChar = '_'
 	nameInCfg.InputOn = true
 	nameIn := wGui.NewTextField(2, 2, 30, 1, nameInCfg)
+	nameIn.SetText(settings.Nick)
 
 	// Description Input
 	descTxt := wGui.NewText(2, 4, "Enter Description", nil)
@@ -36,6 +37,7 @@ func InitSettings(controller *wGui.GUI) *SettingsUI {
 	descInCfg.UnfilledChar = '_'
 	descInCfg.InputOn = true
 	descIn := wGui.NewTextField(2, 5, 30, 5, descInCfg)
+	descIn.SetText(settings.Description)
 
 	// Action Buttons
 	btnCfg := wGui.NewButtonConfig()

@@ -9,13 +9,46 @@ import (
 )
 
 func main() {
-	gui := wGui.NewGUI(true)
-	ctx := context.Background()
-	ch := make(chan client.GameSettings)
-	go logic.DisplayGameSettings(gui, ch)
-	go func() {
-		settings := <-ch
-		logic.StartGame(gui, settings)
-	}()
-	gui.Start(ctx, nil)
+	controller := wGui.NewGUI(true)
+	boardCh := make(chan []string)
+	settingsCh := make(chan client.GameSettings)
+	settings := client.GameSettings{}
+	board := make([]string, 0)
+	abort := make(chan rune)
+	for {
+		ctx, canc := context.WithCancel(context.Background())
+		var char rune
+		go logic.DisplayGameSettings(controller, settingsCh, &settings)
+		go func(ctx context.Context) {
+			select {
+			case <-ctx.Done():
+				return
+			case settings = <-settingsCh:
+				logic.DisplayPlacement(controller, boardCh, abort)
+			}
+
+		}(ctx)
+		go func(ctx context.Context) {
+			select {
+			case <-ctx.Done():
+				return
+			case board = <-boardCh:
+				settings.Coords = board
+				logic.StartGame(controller, settings, abort)
+			}
+		}(ctx)
+		go func(ctx context.Context) {
+			select {
+			case <-ctx.Done():
+				return
+			case char = <-abort:
+				canc()
+				return
+			}
+		}(ctx)
+		controller.Start(ctx, nil)
+		if char != ' ' {
+			break
+		}
+	}
 }

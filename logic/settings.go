@@ -11,13 +11,13 @@ import (
 
 // Displays game settings and listens for button clicks.
 // When the start button or bot button is clicked it sends game settings to the channel given as the argument.
-func DisplayGameSettings(controller *wGui.GUI, ch chan<- client.GameSettings) {
+func DisplayGameSettings(controller *wGui.GUI, ch chan<- client.GameSettings, settings *client.GameSettings) {
 	refresh := make(chan rune)
 
 	controller.NewScreen("settings")
 	controller.SetScreen("settings")
 
-	settingsUi := cli.InitSettings(controller)
+	settingsUi := cli.InitSettings(controller, settings)
 
 	go displayLobby(settingsUi, refresh)
 
