@@ -13,6 +13,7 @@ import (
 func StartGame(controller *wGui.GUI, gs client.GameSettings, abandon chan<- rune) error {
 	controller.NewScreen("game")
 	controller.SetScreen("game")
+	gameEnded := false
 
 	apiClient, err := client.InitGame(gs)
 	if err != nil {
@@ -36,7 +37,10 @@ func StartGame(controller *wGui.GUI, gs client.GameSettings, abandon chan<- rune
 	// The channel will send messages to the goroutine responsible for displaying errors.
 	errMsgChan := make(chan string)
 
-	go btnListen(mainEnd, gameUi, apiClient, abandon)
+	go func() {
+		btnListen(mainEnd, gameUi, apiClient, abandon)
+		gameEnded = true
+	}()
 
 	go errorDisplayer(mainEnd, gameUi, errMsgChan)
 
@@ -49,6 +53,9 @@ func StartGame(controller *wGui.GUI, gs client.GameSettings, abandon chan<- rune
 	oppShotCount := 0
 	// Main game loop. Gets the game status every second and updates the GUI accordingly
 	for {
+		if gameEnded {
+			break
+		}
 		statusRes, err = apiClient.Status()
 		if err != nil {
 			gameUi.Controller.Log(fmt.Sprintf("Status error: %s", err.Error()))
@@ -79,10 +86,12 @@ func StartGame(controller *wGui.GUI, gs client.GameSettings, abandon chan<- rune
 	}
 	if statusRes.LastGameStatus == "lose" {
 		gameUi.EndText.SetText("You lose!\n")
-		return err
+	} else {
+		gameUi.EndText.SetText("You won!\n")
 	}
-	gameUi.EndText.SetText("You won!\n")
-	// Goroutine responsible for getting player input and handling fire mechanic.
+	for !gameEnded {
+		time.Sleep(time.Second)
+	}
 	return err
 }
 

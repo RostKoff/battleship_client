@@ -459,7 +459,17 @@ func getPlacement(lCoord, nCoord int, states [10][10]wGui.State) (statusCluster,
 		y := coords[1]
 		toVisit = toVisit[:n]
 		state := states[x][y]
-		statusCluster = append(statusCluster, coords)
+
+		included := false
+		for _, c := range statusCluster {
+			if c[0] == coords[0] && c[1] == coords[1] {
+				included = true
+				break
+			}
+		}
+		if !included {
+			statusCluster = append(statusCluster, coords)
+		}
 		for i := -1; i < 2; i++ {
 			for j := -1; j < 2; j++ {
 				if (j == 0 && i == 0) || x+i < 0 || x+i > 9 || y+j < 0 || y+j > 9 {
